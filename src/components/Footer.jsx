@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Shield, Heart } from 'lucide-react';
+import { HeartCrack, Shield, Heart } from 'lucide-react';
 import { ALL_TOOLS_LIST } from '../data/toolsData';
 
 export default function Footer({ onSelectTool, onOpenAnalytics }) {
@@ -15,12 +15,17 @@ export default function Footer({ onSelectTool, onOpenAnalytics }) {
           {/* Brand Info */}
           <div className="md:col-span-1 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-400 flex items-center justify-center text-purple-950 font-black">
-                <FileText className="w-4 h-4 text-white" />
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-700 via-purple-600 to-pink-600 p-0.5 shadow-lg shadow-purple-900/40 shrink-0">
+                <div className="w-full h-full bg-[#160431] rounded-[14px] flex items-center justify-center border border-purple-400/30">
+                  <HeartCrack className="w-5 h-5 text-rose-400" />
+                </div>
               </div>
-              <span className="text-xl font-light tracking-[0.18em] uppercase text-white font-['Outfit']">
-                I HATE <span className="font-black text-amber-400">PDF</span>
-              </span>
+              <div className="flex flex-col">
+                <span className="text-xl font-light tracking-[0.18em] uppercase text-white font-['Outfit']">
+                  I HATE <span className="font-black text-amber-400">PDF</span>
+                </span>
+                <p className="text-[10px] text-purple-300/70 font-light tracking-wide">Because Working With PDFs Sucks</p>
+              </div>
             </div>
             <p className="text-purple-300 leading-relaxed text-[11px]">
               Every tool you need to work with PDFs and Word documents in one place without the frustration. 100% web-based and free.
