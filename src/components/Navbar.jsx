@@ -16,7 +16,8 @@ import {
   FileDown,
   Edit3,
   Lock,
-  Cpu
+  Cpu,
+  Clock
 } from 'lucide-react';
 import { CLASSIFIED_MENU_DATA } from '../data/toolsData';
 import ToolMicroIcon from './ToolMicroIcon';
