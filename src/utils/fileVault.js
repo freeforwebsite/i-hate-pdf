@@ -1,174 +1,215 @@
-// IndexedDB 7-Day File Vault for I HATE PDF
+// Robust IndexedDB 7-Day File Vault with LocalStorage Fallback
 
 const DB_NAME = 'IHatePdfVault';
 const DB_VERSION = 1;
 const STORE_NAME = 'saved_files';
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-
-// Open or create the IndexedDB database
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-        store.createIndex('createdAt', 'createdAt', { unique: false });
-        store.createIndex('expiresAt', 'expiresAt', { unique: false });
-      }
-    };
-
-    request.onsuccess = () => resolve(request.target.result);
-    request.onerror = () => reject(request.error);
-  });
-}
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const FALLBACK_KEY = 'ihatepdf_vault_files_backup';
 
 import { uploadToCloudinary } from './cloudinary';
 
-// Save a processed file to 7-day storage (Local + Cloudinary Cloud)
-export async function saveFileToVault({ fileName, toolId, toolName, blob, fileSize }) {
-  try {
-    const db = await openDB();
-    const now = Date.now();
-    const expiresAt = now + SEVEN_DAYS_MS;
-
-    // Optional Cloudinary Upload in parallel
-    let cloudData = null;
-    try {
-      cloudData = await uploadToCloudinary(blob, fileName);
-    } catch (e) {
-      console.warn('Cloudinary backup skipped:', e);
+// Open or create the IndexedDB database with timeout
+function openDB() {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      return reject(new Error('IndexedDB not supported'));
     }
 
-    const fileRecord = {
-      id: 'file_' + now + '_' + Math.random().toString(36).substring(2, 7),
-      fileName,
-      toolId,
-      toolName: toolName || toolId,
-      blob,
-      cloudUrl: cloudData?.secureUrl || null,
-      cloudPublicId: cloudData?.publicId || null,
-      fileSize: fileSize || blob.size,
-      mimeType: blob.type || 'application/pdf',
-      createdAt: now,
-      expiresAt: expiresAt,
-    };
+    const timeout = setTimeout(() => {
+      reject(new Error('IndexedDB open timeout'));
+    }, 2000);
 
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(fileRecord);
+    try {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          store.createIndex('createdAt', 'createdAt', { unique: false });
+          store.createIndex('expiresAt', 'expiresAt', { unique: false });
+        }
+      };
 
       request.onsuccess = () => {
-        // Also cleanup expired files in background
-        cleanExpiredFiles().catch(() => {});
-        resolve(fileRecord);
+        clearTimeout(timeout);
+        resolve(request.target.result);
       };
-      request.onerror = () => reject(request.error);
-    });
-  } catch (err) {
-    console.error('Failed to save to File Vault:', err);
-    return null;
+
+      request.onerror = () => {
+        clearTimeout(timeout);
+        reject(request.error || new Error('IndexedDB error'));
+      };
+
+      request.onblocked = () => {
+        clearTimeout(timeout);
+        reject(new Error('IndexedDB blocked'));
+      };
+    } catch (err) {
+      clearTimeout(timeout);
+      reject(err);
+    }
+  });
+}
+
+// Fallback LocalStorage reader
+function getFallbackFiles() {
+  try {
+    const raw = localStorage.getItem(FALLBACK_KEY);
+    if (!raw) return [];
+    const files = JSON.parse(raw);
+    const now = Date.now();
+    return files.filter(f => f.expiresAt && f.expiresAt > now);
+  } catch (e) {
+    return [];
   }
 }
 
-// Retrieve all valid stored files (auto-purging expired files older than 7 days)
-export async function getVaultFiles() {
+function saveFallbackFile(fileRecord) {
+  try {
+    const existing = getFallbackFiles();
+    const cleanRecord = { ...fileRecord, blob: null }; // Avoid storing huge binary in localStorage
+    const updated = [cleanRecord, ...existing].slice(0, 30);
+    localStorage.setItem(FALLBACK_KEY, JSON.stringify(updated));
+  } catch (e) {}
+}
+
+// Save a processed file to 7-day storage (Local + Cloudinary Cloud)
+export async function saveFileToVault({ fileName, toolId, toolName, blob, fileSize }) {
+  const now = Date.now();
+  const expiresAt = now + SEVEN_DAYS_MS;
+
+  // Optional Cloudinary Upload in parallel
+  let cloudData = null;
+  try {
+    cloudData = await uploadToCloudinary(blob, fileName);
+  } catch (e) {
+    console.warn('Cloudinary backup skipped:', e);
+  }
+
+  const fileRecord = {
+    id: 'file_' + now + '_' + Math.random().toString(36).substring(2, 7),
+    fileName,
+    toolId,
+    toolName: toolName || toolId,
+    blob,
+    cloudUrl: cloudData?.secureUrl || null,
+    cloudPublicId: cloudData?.publicId || null,
+    fileSize: fileSize || blob.size,
+    mimeType: blob?.type || 'application/pdf',
+    createdAt: now,
+    expiresAt: expiresAt,
+  };
+
+  // Always save metadata backup to localStorage
+  saveFallbackFile(fileRecord);
+
   try {
     const db = await openDB();
-    const now = Date.now();
+    return new Promise((resolve) => {
+      try {
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.put(fileRecord);
 
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.getAll();
-
-      request.onsuccess = () => {
-        const allFiles = request.result || [];
-        const validFiles = [];
-        const expiredIds = [];
-
-        for (const file of allFiles) {
-          if (file.expiresAt && file.expiresAt > now) {
-            validFiles.push(file);
-          } else {
-            expiredIds.push(file.id);
-          }
-        }
-
-        // Delete expired records
-        for (const id of expiredIds) {
-          store.delete(id);
-        }
-
-        // Sort latest first
-        validFiles.sort((a, b) => b.createdAt - a.createdAt);
-        resolve(validFiles);
-      };
-
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(fileRecord);
+        request.onerror = () => resolve(fileRecord);
+      } catch (err) {
+        resolve(fileRecord);
+      }
     });
   } catch (err) {
-    console.error('Failed to get files from vault:', err);
-    return [];
+    return fileRecord;
+  }
+}
+
+// Retrieve all stored files
+export async function getVaultFiles() {
+  const now = Date.now();
+
+  try {
+    const db = await openDB();
+
+    return new Promise((resolve) => {
+      try {
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+          const allFiles = request.result || [];
+          const validFiles = [];
+
+          for (const file of allFiles) {
+            if (file.expiresAt && file.expiresAt > now) {
+              validFiles.push(file);
+            }
+          }
+
+          validFiles.sort((a, b) => b.createdAt - a.createdAt);
+          resolve(validFiles.length > 0 ? validFiles : getFallbackFiles());
+        };
+
+        request.onerror = () => {
+          resolve(getFallbackFiles());
+        };
+      } catch (err) {
+        resolve(getFallbackFiles());
+      }
+    });
+  } catch (err) {
+    // Return localStorage fallback immediately if IndexedDB unavailable
+    return getFallbackFiles();
   }
 }
 
 // Delete a single file from vault
 export async function deleteVaultFile(id) {
+  // Clear from localStorage
+  try {
+    const fallback = getFallbackFiles().filter(f => f.id !== id);
+    localStorage.setItem(FALLBACK_KEY, JSON.stringify(fallback));
+  } catch (e) {}
+
   try {
     const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.delete(id);
-      request.onsuccess = () => resolve(true);
-      request.onerror = () => reject(request.error);
+    return new Promise((resolve) => {
+      try {
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.delete(id);
+        request.onsuccess = () => resolve(true);
+        request.onerror = () => resolve(true);
+      } catch (err) {
+        resolve(true);
+      }
     });
   } catch (err) {
-    console.error('Failed to delete file from vault:', err);
-    return false;
+    return true;
   }
 }
 
 // Clear all files from vault
 export async function clearVault() {
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.clear();
-      request.onsuccess = () => resolve(true);
-      request.onerror = () => reject(request.error);
-    });
-  } catch (err) {
-    console.error('Failed to clear vault:', err);
-    return false;
-  }
-}
+    localStorage.removeItem(FALLBACK_KEY);
+  } catch (e) {}
 
-// Background cleanup routine
-export async function cleanExpiredFiles() {
   try {
     const db = await openDB();
-    const now = Date.now();
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const index = store.index('expiresAt');
-    const range = IDBKeyRange.upperBound(now);
-
-    const request = index.openCursor(range);
-    request.onsuccess = (e) => {
-      const cursor = e.target.result;
-      if (cursor) {
-        cursor.delete();
-        cursor.continue();
+    return new Promise((resolve) => {
+      try {
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.clear();
+        request.onsuccess = () => resolve(true);
+        request.onerror = () => resolve(true);
+      } catch (err) {
+        resolve(true);
       }
-    };
-  } catch (e) {
-    // Ignore cleanup errors
+    });
+  } catch (err) {
+    return true;
   }
 }
 

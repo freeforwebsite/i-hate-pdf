@@ -21,9 +21,15 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
 
   const loadFiles = async () => {
     setLoading(true);
-    const stored = await getVaultFiles();
-    setFiles(stored);
-    setLoading(false);
+    try {
+      const stored = await getVaultFiles();
+      setFiles(Array.isArray(stored) ? stored : []);
+    } catch (e) {
+      console.warn('Vault load error:', e);
+      setFiles([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
