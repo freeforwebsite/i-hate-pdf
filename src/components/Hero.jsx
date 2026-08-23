@@ -126,11 +126,11 @@ export default function Hero({ searchQuery, setSearchQuery, onSelectTool, onScro
         {/* Action CTAs */}
         <div className="flex flex-wrap items-center justify-center gap-4 mb-12">
           <button 
-            onClick={() => onSelectTool('merge')}
+            onClick={onScrollToTools}
             className="px-8 py-3.5 rounded-full bg-amber-400 hover:bg-amber-300 text-purple-950 font-black text-sm sm:text-base shadow-xl shadow-amber-400/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
           >
             <Zap className="w-5 h-5 fill-purple-950" />
-            <span>Merge PDF Now — Free</span>
+            <span>Get Started — 100% Free</span>
           </button>
 
           <button 
