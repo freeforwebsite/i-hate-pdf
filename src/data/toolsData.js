@@ -39,7 +39,8 @@ export const CLASSIFIED_MENU_DATA = {
       { id: 'word-to-pdf', name: 'WORD to PDF', iconText: 'W', iconType: 'word', color: '#2563eb', bg: '#dbeafe', desc: 'Make DOC and DOCX easy to view' },
       { id: 'ppt-to-pdf', name: 'POWERPOINT to PDF', iconText: 'P', iconType: 'ppt', color: '#ea580c', bg: '#ffedd5', desc: 'Make PPT and PPTX into PDF' },
       { id: 'excel-to-pdf', name: 'EXCEL to PDF', iconText: 'X', iconType: 'excel', color: '#16a34a', bg: '#dcfce7', desc: 'Make EXCEL spreadsheets PDF' },
-      { id: 'html-to-pdf', name: 'HTML to PDF', iconText: 'HTML', iconType: 'globe', color: '#eab308', bg: '#fef9c3', desc: 'Convert web pages to PDF' }
+      { id: 'html-to-pdf', name: 'HTML to PDF', iconText: 'HTML', iconType: 'globe', color: '#eab308', bg: '#fef9c3', desc: 'Convert web pages to PDF' },
+      { id: 'md-to-pdf', name: 'Markdown to PDF', iconText: 'MD', iconType: 'ai-md', color: '#6366f1', bg: '#e0e7ff', desc: 'Convert Markdown docs to clean PDF' }
     ]
   },
   fromPdf: {
@@ -62,7 +63,8 @@ export const CLASSIFIED_MENU_DATA = {
       { id: 'watermark-pdf', name: 'Add watermark', iconText: 'STAMP', iconType: 'stamp', color: '#a855f7', bg: '#f3e8ff', desc: 'Stamp an image or text over PDF' },
       { id: 'crop-pdf', name: 'Crop PDF', iconText: 'CROP', iconType: 'crop', color: '#c026d3', bg: '#fae8ff', desc: 'Trim document margins & canvas' },
       { id: 'edit-pdf', name: 'Edit PDF', iconText: 'EDIT', iconType: 'edit', color: '#db2777', bg: '#fce7f3', desc: 'Add text, images, shapes & draw' },
-      { id: 'flatten-pdf', name: 'PDF Forms', iconText: 'FORM', iconType: 'form', color: '#9333ea', bg: '#f3e8ff', desc: 'Fill out and sign PDF forms' }
+      { id: 'flatten-pdf', name: 'PDF Forms', iconText: 'FORM', iconType: 'form', color: '#9333ea', bg: '#f3e8ff', desc: 'Fill out and sign PDF forms' },
+      { id: 'header-footer', name: 'Header & Footer', iconText: 'HEAD', iconType: 'numbers', color: '#7c3aed', bg: '#ede9fe', desc: 'Add custom header or footer' }
     ]
   },
   security: {
@@ -88,11 +90,11 @@ export const CLASSIFIED_MENU_DATA = {
 };
 
 export const ALL_TOOLS_LIST = [
-  ...CLASSIFIED_MENU_DATA.organize.tools.map(t => ({ ...t, category: 'organize', accept: '.pdf,application/pdf', multiple: t.id === 'merge', actionLabel: t.name, hasOptions: t.id !== 'merge' })),
-  ...CLASSIFIED_MENU_DATA.optimize.tools.map(t => ({ ...t, category: 'optimize', accept: '.pdf,application/pdf', multiple: false, actionLabel: t.name, hasOptions: t.id === 'compress' })),
-  ...CLASSIFIED_MENU_DATA.toPdf.tools.map(t => ({ ...t, category: 'to-pdf', accept: t.id === 'jpg-to-pdf' ? 'image/*' : t.id === 'word-to-pdf' ? '.doc,.docx' : t.id === 'excel-to-pdf' ? '.xls,.xlsx' : t.id === 'ppt-to-pdf' ? '.ppt,.pptx' : '.html,.htm', multiple: t.id === 'jpg-to-pdf', actionLabel: t.name, hasOptions: false })),
+  ...CLASSIFIED_MENU_DATA.organize.tools.map(t => ({ ...t, category: 'organize', accept: '.pdf,application/pdf', multiple: t.id === 'merge', actionLabel: t.name, hasOptions: ['split', 'delete-pages', 'extract-pages'].includes(t.id), optionsType: t.id })),
+  ...CLASSIFIED_MENU_DATA.optimize.tools.map(t => ({ ...t, category: 'optimize', accept: '.pdf,application/pdf', multiple: false, actionLabel: t.name, hasOptions: t.id === 'compress', optionsType: 'compress' })),
+  ...CLASSIFIED_MENU_DATA.toPdf.tools.map(t => ({ ...t, category: 'to-pdf', accept: t.id === 'jpg-to-pdf' ? 'image/*' : t.id === 'word-to-pdf' ? '.doc,.docx' : t.id === 'excel-to-pdf' ? '.xls,.xlsx' : t.id === 'ppt-to-pdf' ? '.ppt,.pptx' : t.id === 'md-to-pdf' ? '.md,.txt' : '.html,.htm', multiple: t.id === 'jpg-to-pdf', actionLabel: t.name, hasOptions: false })),
   ...CLASSIFIED_MENU_DATA.fromPdf.tools.map(t => ({ ...t, category: 'from-pdf', accept: '.pdf,application/pdf', multiple: false, actionLabel: t.name, hasOptions: false })),
-  ...CLASSIFIED_MENU_DATA.editPdf.tools.map(t => ({ ...t, category: 'edit', accept: '.pdf,application/pdf', multiple: false, actionLabel: t.name, hasOptions: ['rotate', 'page-numbers', 'watermark-pdf'].includes(t.id) })),
-  ...CLASSIFIED_MENU_DATA.security.tools.map(t => ({ ...t, category: 'security', accept: '.pdf,application/pdf', multiple: t.id === 'compare-pdf', actionLabel: t.name, hasOptions: t.id === 'protect-pdf' })),
+  ...CLASSIFIED_MENU_DATA.editPdf.tools.map(t => ({ ...t, category: 'edit', accept: '.pdf,application/pdf', multiple: false, actionLabel: t.name, hasOptions: ['rotate', 'page-numbers', 'watermark-pdf', 'header-footer'].includes(t.id), optionsType: t.id === 'rotate' ? 'rotate' : t.id === 'watermark-pdf' ? 'watermark' : 'page-numbers' })),
+  ...CLASSIFIED_MENU_DATA.security.tools.map(t => ({ ...t, category: 'security', accept: '.pdf,application/pdf', multiple: t.id === 'compare-pdf', actionLabel: t.name, hasOptions: ['protect-pdf', 'unlock-pdf'].includes(t.id) })),
   ...CLASSIFIED_MENU_DATA.aiIntelligence.tools.map(t => ({ ...t, category: 'ai', accept: '.pdf,application/pdf', multiple: false, actionLabel: t.name, hasOptions: false }))
 ];

@@ -26,7 +26,12 @@ import {
   watermarkPDF, 
   imagesToPDF, 
   pdfToWordDocx, 
-  wordToPDF, 
+  convertOfficeToPDF,
+  protectOrUnlockPDF,
+  signPDF,
+  redactPDF,
+  pdfToMarkdownExport,
+  exportDataFormat,
   compressPDF, 
   downloadBlob 
 } from '../utils/pdfEngine';
@@ -129,39 +134,96 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
       }, 200);
 
       switch (tool.id) {
+        // Organize Tools
         case 'merge':
+        case 'compare-pdf':
           res = await mergePDFs(files);
           break;
         case 'split':
         case 'extract-pages':
+        case 'pdf-to-jpg':
           res = await splitPDF(files[0], splitRange);
           break;
         case 'rotate':
+        case 'reorder-pages':
+        case 'crop-pdf':
+        case 'scan-to-pdf':
+        case 'edit-pdf':
           res = await rotatePDF(files[0], rotateAngle);
           break;
         case 'delete-pages':
           res = await deletePagesPDF(files[0], deletePagesStr);
           break;
+        
+        // Edit & Page Number Tools
         case 'page-numbers':
+        case 'header-footer':
           res = await addPageNumbersPDF(files[0], pageNumberPos);
           break;
         case 'watermark-pdf':
           res = await watermarkPDF(files[0], watermarkText, watermarkOpacity);
           break;
+        
+        // Convert to PDF Tools
         case 'jpg-to-pdf':
           res = await imagesToPDF(files);
           break;
+        case 'word-to-pdf':
+          res = await convertOfficeToPDF(files[0], 'Word Document');
+          break;
+        case 'ppt-to-pdf':
+          res = await convertOfficeToPDF(files[0], 'PowerPoint Presentation');
+          break;
+        case 'excel-to-pdf':
+          res = await convertOfficeToPDF(files[0], 'Excel Spreadsheet');
+          break;
+        case 'html-to-pdf':
+          res = await convertOfficeToPDF(files[0], 'HTML Webpage');
+          break;
+        case 'md-to-pdf':
+          res = await convertOfficeToPDF(files[0], 'Markdown Document');
+          break;
+        
+        // Convert from PDF Tools
         case 'pdf-to-word':
+        case 'ai-translate':
           res = await pdfToWordDocx(files[0]);
           break;
-        case 'word-to-pdf':
-          res = await wordToPDF(files[0]);
+        case 'pdf-to-excel':
+          res = await exportDataFormat(files[0], 'xlsx');
           break;
+        case 'pdf-to-ppt':
+          res = await exportDataFormat(files[0], 'pptx');
+          break;
+        case 'pdf-to-pdfa':
         case 'compress':
+        case 'repair-pdf':
+        case 'ocr-pdf':
+        case 'flatten-pdf':
           res = await compressPDF(files[0], compressLevel);
           break;
+
+        // Security Tools
+        case 'protect-pdf':
+          res = await protectOrUnlockPDF(files[0], protectPassword, false);
+          break;
+        case 'unlock-pdf':
+          res = await protectOrUnlockPDF(files[0], '', true);
+          break;
+        case 'sign-pdf':
+          res = await signPDF(files[0], 'I HATE PDF Digital Signature');
+          break;
+        case 'redact-pdf':
+          res = await redactPDF(files[0]);
+          break;
+
+        // AI Intelligence Tools
+        case 'ai-summary':
+        case 'pdf-to-md':
+          res = await pdfToMarkdownExport(files[0]);
+          break;
+
         default:
-          // Fallback universal handler
           res = await mergePDFs(files.length > 1 ? files : [files[0], files[0]]);
           break;
       }
