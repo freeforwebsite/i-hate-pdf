@@ -21,7 +21,7 @@ import {
 import { CLASSIFIED_MENU_DATA } from '../data/toolsData';
 import ToolMicroIcon from './ToolMicroIcon';
 
-export default function Navbar({ onSelectTool, onGoHome, activeTab, onOpenSearch }) {
+export default function Navbar({ onSelectTool, onGoHome, activeTab, onOpenSearch, onOpenVault }) {
   const [popularToolsOpen, setPopularToolsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeCategoryTab, setActiveCategoryTab] = useState('all');
@@ -113,14 +113,24 @@ export default function Navbar({ onSelectTool, onGoHome, activeTab, onOpenSearch
           {/* 3. RIGHT ACTION BUTTONS */}
           <div className="flex items-center gap-2 sm:gap-3">
             
-            {/* Clean Search Bar Button (No ⌘K badge) */}
+            {/* 7-Day File Vault Trigger */}
+            <button 
+              onClick={onOpenVault}
+              className="px-3 py-2 rounded-xl bg-purple-900/40 hover:bg-purple-800/60 border border-purple-500/30 text-amber-300 hover:text-amber-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+              title="View files stored up to 7 days"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">7-Day Vault</span>
+            </button>
+
+            {/* Clean Search Bar Button */}
             <button 
               onClick={onOpenSearch}
               className="px-3.5 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-purple-200 hover:text-white text-xs font-semibold flex items-center gap-2 transition-all"
               title="Search all tools"
             >
               <Search className="w-4 h-4 text-amber-300" />
-              <span>Search Tools</span>
+              <span className="hidden sm:inline">Search</span>
             </button>
 
             {/* Start Free CTA */}

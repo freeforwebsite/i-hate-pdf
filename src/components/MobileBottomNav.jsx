@@ -1,7 +1,7 @@
 import React from 'react';
-import { Home, Grid, History, Crown, Zap } from 'lucide-react';
+import { Home, Grid, History, Clock, Zap } from 'lucide-react';
 
-export default function MobileBottomNav({ activeTab, onSelectTab, onOpenAllTools }) {
+export default function MobileBottomNav({ activeTab, onSelectTab, onOpenAllTools, onOpenVault }) {
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-3 py-2 shadow-2xl safe-area-bottom">
       <div className="flex items-center justify-around">
@@ -42,14 +42,14 @@ export default function MobileBottomNav({ activeTab, onSelectTab, onOpenAllTools
           <span className="text-[10px]">Recent</span>
         </button>
 
-        {/* Features */}
-        <a 
-          href="#features"
-          className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl text-slate-500 hover:text-purple-700 transition-all"
+        {/* 7-Day Vault */}
+        <button 
+          onClick={onOpenVault}
+          className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl text-slate-500 hover:text-amber-600 transition-all"
         >
-          <Crown className="w-5 h-5 text-purple-600" />
-          <span className="text-[10px]">Features</span>
-        </a>
+          <Clock className="w-5 h-5 text-amber-500" />
+          <span className="text-[10px] font-bold text-amber-600">Vault (7d)</span>
+        </button>
 
       </div>
     </div>

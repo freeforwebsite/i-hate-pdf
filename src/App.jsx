@@ -7,6 +7,7 @@ import TrustSection from './components/TrustSection';
 import Footer from './components/Footer';
 import MobileBottomNav from './components/MobileBottomNav';
 import SearchModal from './components/SearchModal';
+import VaultModal from './components/VaultModal';
 import { ALL_TOOLS_LIST } from './data/toolsData';
 import { Clock, FileText, Trash2 } from 'lucide-react';
 
@@ -16,6 +17,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isVaultOpen, setIsVaultOpen] = useState(false);
   const [recentHistory, setRecentHistory] = useState([]);
 
   // Load history from localStorage
@@ -91,6 +93,7 @@ export default function App() {
         onGoHome={handleGoHome}
         activeTab={activeTab}
         onOpenSearch={() => setIsSearchOpen(true)}
+        onOpenVault={() => setIsVaultOpen(true)}
       />
 
       {/* 2. MAIN CONTENT ROUTER */}
@@ -197,23 +200,32 @@ export default function App() {
       {/* 3. FOOTER */}
       <Footer onSelectTool={handleSelectTool} />
 
-      {/* 4. MOBILE BOTTOM NAVIGATION (CHROME MOBILE OPTIMIZED) */}
+      {/* 4. MOBILE BOTTOM NAVIGATION */}
       <MobileBottomNav 
         activeTab={activeTab}
         onSelectTab={(tab, toolId) => {
-          if (toolId) handleSelectTool(toolId);
+          if (tab === 'vault') setIsVaultOpen(true);
+          else if (toolId) handleSelectTool(toolId);
           else setActiveTab(tab);
         }}
         onOpenAllTools={() => {
           setActiveTab('home');
           setTimeout(() => scrollToTools(), 100);
         }}
+        onOpenVault={() => setIsVaultOpen(true)}
       />
 
       {/* 5. SEARCH OVERLAY MODAL */}
       <SearchModal 
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
+        onSelectTool={handleSelectTool}
+      />
+
+      {/* 6. 7-DAY FILE VAULT MODAL */}
+      <VaultModal 
+        isOpen={isVaultOpen}
+        onClose={() => setIsVaultOpen(false)}
         onSelectTool={handleSelectTool}
       />
 
