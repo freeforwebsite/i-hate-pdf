@@ -10,9 +10,25 @@ function loadAccounts() {
     }
   } catch (e) {}
 
-  // Fallback to single account config if set
-  const singleName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || localStorage.getItem('ihatepdf_cloudinary_name') || '';
-  const singlePreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || localStorage.getItem('ihatepdf_cloudinary_preset') || '';
+  // Load from environment variables (Accounts 1 to 4)
+  const envAccounts = [];
+  for (let i = 1; i <= 4; i++) {
+    const name = import.meta.env[`VITE_CLOUDINARY_CLOUD_NAME_${i}`] || (i === 1 ? import.meta.env.VITE_CLOUDINARY_CLOUD_NAME : '');
+    const preset = import.meta.env[`VITE_CLOUDINARY_UPLOAD_PRESET_${i}`] || (i === 1 ? import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET : '');
+    const apiKey = import.meta.env[`VITE_CLOUDINARY_API_KEY_${i}`] || '';
+    
+    if (name && preset) {
+      envAccounts.push({ cloudName: name, uploadPreset: preset, apiKey });
+    }
+  }
+
+  if (envAccounts.length > 0) {
+    return envAccounts;
+  }
+
+  // Fallback to single account config if set in localStorage
+  const singleName = localStorage.getItem('ihatepdf_cloudinary_name') || '';
+  const singlePreset = localStorage.getItem('ihatepdf_cloudinary_preset') || '';
   
   if (singleName && singlePreset) {
     return [{ cloudName: singleName, uploadPreset: singlePreset }];
