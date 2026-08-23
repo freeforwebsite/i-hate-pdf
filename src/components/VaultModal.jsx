@@ -10,29 +10,14 @@ import {
   Sparkles,
   HardDrive,
   RefreshCw,
-  Cloud,
-  Settings,
-  ExternalLink,
-  Check,
-  Plus,
-  Layers
+  Cloud
 } from 'lucide-react';
 import { getVaultFiles, deleteVaultFile, clearVault, getRemainingTimeString } from '../utils/fileVault';
 import { downloadBlob } from '../utils/pdfEngine';
-import { 
-  getCloudinaryAccounts, 
-  setCloudinaryAccounts, 
-  isCloudinaryConfigured 
-} from '../utils/cloudinary';
 
 export default function VaultModal({ isOpen, onClose, onSelectTool }) {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showCloudSettings, setShowCloudSettings] = useState(false);
-  
-  // Multi-Account Pool State
-  const [accounts, setAccounts] = useState([]);
-  const [savedSuccess, setSavedSuccess] = useState(false);
 
   const loadFiles = async () => {
     setLoading(true);
@@ -44,18 +29,6 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
   useEffect(() => {
     if (isOpen) {
       loadFiles();
-      const existing = getCloudinaryAccounts();
-      if (existing.length > 0) {
-        setAccounts(existing);
-      } else {
-        // Default with 4 empty account slots for the user
-        setAccounts([
-          { cloudName: '', uploadPreset: '' },
-          { cloudName: '', uploadPreset: '' },
-          { cloudName: '', uploadPreset: '' },
-          { cloudName: '', uploadPreset: '' }
-        ]);
-      }
     }
   }, [isOpen]);
 
@@ -82,30 +55,6 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
     }
   };
 
-  const handleAccountChange = (index, field, value) => {
-    const updated = [...accounts];
-    updated[index][field] = value;
-    setAccounts(updated);
-  };
-
-  const handleAddAccountSlot = () => {
-    setAccounts([...accounts, { cloudName: '', uploadPreset: '' }]);
-  };
-
-  const handleRemoveAccountSlot = (index) => {
-    setAccounts(accounts.filter((_, i) => i !== index));
-  };
-
-  const handleSaveAccounts = (e) => {
-    e.preventDefault();
-    setCloudinaryAccounts(accounts);
-    setSavedSuccess(true);
-    setTimeout(() => {
-      setSavedSuccess(false);
-      setShowCloudSettings(false);
-    }, 1200);
-  };
-
   const formatBytes = (bytes) => {
     if (!bytes) return '0 B';
     const k = 1024;
@@ -115,8 +64,6 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
   };
 
   const totalSize = files.reduce((acc, f) => acc + (f.fileSize || 0), 0);
-  const activeAccCount = accounts.filter(a => a.cloudName && a.uploadPreset).length;
-  const isCloudReady = isCloudinaryConfigured();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-purple-950/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -135,108 +82,23 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
                 <h3 className="text-lg sm:text-xl font-black font-['Outfit']">
                   7-Day File Vault
                 </h3>
-                {isCloudReady ? (
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
-                    <Cloud className="w-3 h-3" /> {activeAccCount} Accounts ({activeAccCount * 25} GB Pool)
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                    Auto-Saved 7 Days
-                  </span>
-                )}
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
+                  <Cloud className="w-3 h-3" /> Auto-Saved for 7 Days
+                </span>
               </div>
               <p className="text-xs text-purple-300">
-                Documents stay accessible for 7 days with cloud multi-account backup
+                Your processed documents are kept secure and accessible for 7 days
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowCloudSettings(!showCloudSettings)}
-              className={`p-2 rounded-xl border transition-all ${showCloudSettings ? 'bg-amber-400 text-purple-950 border-amber-400 font-bold' : 'bg-purple-900/50 hover:bg-purple-800 text-purple-200 hover:text-white border-purple-700/40'}`}
-              title="Cloudinary Multi-Account Settings (4 Accounts)"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-200 hover:text-white transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-200 hover:text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-
-        {/* 4-Account Cloudinary Configuration Pool */}
-        {showCloudSettings && (
-          <form onSubmit={handleSaveAccounts} className="my-4 p-4 rounded-2xl bg-purple-900/60 border border-purple-500/40 space-y-3 shrink-0 animate-in fade-in slide-in-from-top-2 max-h-72 overflow-y-auto custom-scroll">
-            <div className="flex items-center justify-between pb-2 border-b border-purple-700/60">
-              <div className="flex items-center gap-2 text-xs font-bold text-cyan-300">
-                <Layers className="w-4 h-4" />
-                <span>Multi-Account Cloud Storage Pool (4 Accounts = 100 GB)</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleAddAccountSlot}
-                className="text-[10px] text-amber-300 hover:text-amber-200 font-bold flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" /> Add Slot
-              </button>
-            </div>
-
-            <p className="text-[11px] text-purple-300">
-              Enter your Cloudinary credentials below. Uploads automatically rotate across your 4 accounts for massive 100 GB storage capacity!
-            </p>
-
-            <div className="space-y-2.5">
-              {accounts.map((acc, idx) => (
-                <div key={idx} className="p-2.5 rounded-xl bg-purple-950/70 border border-purple-700/60 flex flex-col sm:flex-row gap-2 items-center">
-                  <span className="text-[10px] font-black text-amber-400 px-2 py-1 rounded bg-purple-900 shrink-0">
-                    Account #{idx + 1}
-                  </span>
-                  <input
-                    type="text"
-                    value={acc.cloudName}
-                    onChange={(e) => handleAccountChange(idx, 'cloudName', e.target.value)}
-                    placeholder="Cloud Name"
-                    className="w-full sm:w-1/2 px-2.5 py-1.5 rounded-lg bg-purple-900/40 border border-purple-600/50 text-white text-xs focus:outline-none focus:border-amber-400"
-                  />
-                  <input
-                    type="text"
-                    value={acc.uploadPreset}
-                    onChange={(e) => handleAccountChange(idx, 'uploadPreset', e.target.value)}
-                    placeholder="Unsigned Upload Preset"
-                    className="w-full sm:w-1/2 px-2.5 py-1.5 rounded-lg bg-purple-900/40 border border-purple-600/50 text-white text-xs focus:outline-none focus:border-amber-400"
-                  />
-                  {accounts.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveAccountSlot(idx)}
-                      className="text-purple-400 hover:text-rose-400 p-1"
-                      title="Remove Account"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-purple-700/60">
-              <span className="text-[10px] text-cyan-300 font-semibold">
-                ✨ Auto-rotates & fails over if any account fills up.
-              </span>
-              <button
-                type="submit"
-                className="px-5 py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-purple-950 font-black text-xs shadow-lg transition-all flex items-center gap-1.5"
-              >
-                {savedSuccess ? <Check className="w-4 h-4" /> : null}
-                <span>{savedSuccess ? '4 Accounts Saved!' : 'Save Multi-Account Pool'}</span>
-              </button>
-            </div>
-          </form>
-        )}
 
         {/* Stats Bar */}
         <div className="flex items-center justify-between py-3 px-4 my-4 bg-purple-900/40 rounded-2xl border border-purple-700/40 text-xs shrink-0">
@@ -250,14 +112,6 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
               <HardDrive className="w-3.5 h-3.5 text-purple-400" />
               {formatBytes(totalSize)}
             </span>
-            {isCloudReady && (
-              <>
-                <span>•</span>
-                <span className="text-cyan-300 font-bold flex items-center gap-1">
-                  <Cloud className="w-3.5 h-3.5" /> 100 GB Cloud Active
-                </span>
-              </>
-            )}
           </div>
 
           {files.length > 0 && (
@@ -285,7 +139,7 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
               </div>
               <div>
                 <p className="font-bold text-white mb-1">No files in your 7-day vault yet</p>
-                <p className="text-xs text-purple-400">Any file you edit, merge, split, or convert will be saved here automatically for 7 days.</p>
+                <p className="text-xs text-purple-400">Any file you edit, merge, split, or convert will appear here automatically for 7 days.</p>
               </div>
             </div>
           ) : (
@@ -311,11 +165,6 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
                         <Clock className="w-2.5 h-2.5" />
                         {getRemainingTimeString(file.expiresAt)}
                       </span>
-                      {file.cloudUrl && (
-                        <span className="text-cyan-300 font-bold flex items-center gap-0.5">
-                          <Cloud className="w-2.5 h-2.5" /> Cloud
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -347,7 +196,7 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
         <div className="pt-4 mt-4 border-t border-purple-800/60 flex items-center justify-between text-[11px] text-purple-300 shrink-0">
           <div className="flex items-center gap-1.5 text-emerald-400">
             <ShieldCheck className="w-4 h-4" />
-            <span>Multi-Account Cloud Redundancy • Auto-Expiring in 7 Days</span>
+            <span>256-Bit SSL Encrypted • Private & Auto-Expiring</span>
           </div>
           <span className="text-purple-400">100% Free Forever</span>
         </div>

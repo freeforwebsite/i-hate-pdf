@@ -8,8 +8,10 @@ import Footer from './components/Footer';
 import MobileBottomNav from './components/MobileBottomNav';
 import SearchModal from './components/SearchModal';
 import VaultModal from './components/VaultModal';
+import AuthModal from './components/AuthModal';
 import { ALL_TOOLS_LIST } from './data/toolsData';
 import { Clock, FileText, Trash2 } from 'lucide-react';
+import { getCurrentUser, logoutUser } from './utils/auth';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home'); // 'home', 'tool', 'history'
@@ -18,6 +20,8 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isVaultOpen, setIsVaultOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [recentHistory, setRecentHistory] = useState([]);
 
   // Load history from localStorage
@@ -93,7 +97,16 @@ export default function App() {
         onGoHome={handleGoHome}
         activeTab={activeTab}
         onOpenSearch={() => setIsSearchOpen(true)}
-        onOpenVault={() => setIsVaultOpen(true)}
+        onOpenVault={() => {
+          if (currentUser) setIsVaultOpen(true);
+          else setIsAuthOpen(true);
+        }}
+        user={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onLogout={() => {
+          logoutUser();
+          setCurrentUser(null);
+        }}
       />
 
       {/* 2. MAIN CONTENT ROUTER */}
@@ -204,7 +217,10 @@ export default function App() {
       <MobileBottomNav 
         activeTab={activeTab}
         onSelectTab={(tab, toolId) => {
-          if (tab === 'vault') setIsVaultOpen(true);
+          if (tab === 'vault') {
+            if (currentUser) setIsVaultOpen(true);
+            else setIsAuthOpen(true);
+          }
           else if (toolId) handleSelectTool(toolId);
           else setActiveTab(tab);
         }}
@@ -212,7 +228,10 @@ export default function App() {
           setActiveTab('home');
           setTimeout(() => scrollToTools(), 100);
         }}
-        onOpenVault={() => setIsVaultOpen(true)}
+        onOpenVault={() => {
+          if (currentUser) setIsVaultOpen(true);
+          else setIsAuthOpen(true);
+        }}
       />
 
       {/* 5. SEARCH OVERLAY MODAL */}
@@ -227,6 +246,16 @@ export default function App() {
         isOpen={isVaultOpen}
         onClose={() => setIsVaultOpen(false)}
         onSelectTool={handleSelectTool}
+      />
+
+      {/* 7. AUTHENTICATION (LOGIN / SIGN UP) MODAL */}
+      <AuthModal 
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          setIsVaultOpen(true);
+        }}
       />
 
     </div>
