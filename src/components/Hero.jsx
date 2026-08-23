@@ -20,8 +20,9 @@ export default function Hero({ searchQuery, setSearchQuery, onSelectTool, onScro
       <div className="absolute top-1/2 -right-40 w-96 h-96 bg-amber-400/15 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute -bottom-20 left-1/3 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
-      {/* Floating 3D Document Badges (Visual Feature of Transforma) */}
-      <div className="hidden lg:block absolute top-12 left-8 xl:left-24 animate-float-1 pointer-events-none select-none">
+      {/* Floating 3D Document Badges (4 Sides & Corners) */}
+      {/* 1. TOP-LEFT: PDF */}
+      <div className="hidden lg:block absolute top-12 left-6 xl:left-20 animate-float-1 pointer-events-none select-none">
         <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-2xl flex items-center gap-3 rotate-[-6deg]">
           <div className="w-10 h-10 rounded-xl bg-rose-500 flex items-center justify-center font-black text-xs text-white shadow-lg shadow-rose-500/30">
             PDF
@@ -33,7 +34,8 @@ export default function Hero({ searchQuery, setSearchQuery, onSelectTool, onScro
         </div>
       </div>
 
-      <div className="hidden lg:block absolute top-16 right-8 xl:right-24 animate-float-2 pointer-events-none select-none">
+      {/* 2. TOP-RIGHT: DOCX */}
+      <div className="hidden lg:block absolute top-16 right-6 xl:right-20 animate-float-2 pointer-events-none select-none">
         <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-2xl flex items-center gap-3 rotate-[8deg]">
           <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-black text-xs text-white shadow-lg shadow-blue-500/30">
             DOCX
@@ -45,12 +47,29 @@ export default function Hero({ searchQuery, setSearchQuery, onSelectTool, onScro
         </div>
       </div>
 
-      <div className="hidden xl:block absolute bottom-12 right-36 animate-float-1 pointer-events-none select-none">
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3.5 shadow-2xl flex items-center gap-2.5 rotate-[-4deg]">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-bold text-[10px] text-white">
+      {/* 3. BOTTOM-LEFT: PPTX */}
+      <div className="hidden xl:block absolute bottom-12 left-20 animate-float-2 pointer-events-none select-none">
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3.5 shadow-2xl flex items-center gap-2.5 rotate-[6deg]">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center font-bold text-[10px] text-white shadow-md">
+            PPTX
+          </div>
+          <div>
+            <div className="text-xs font-bold text-white">Pitch_Deck.pptx</div>
+            <div className="text-[10px] text-purple-200">Vector Slides Ready</div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. BOTTOM-RIGHT: XLSX */}
+      <div className="hidden xl:block absolute bottom-12 right-20 animate-float-1 pointer-events-none select-none">
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3.5 shadow-2xl flex items-center gap-2.5 rotate-[-6deg]">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-bold text-[10px] text-white shadow-md">
             XLSX
           </div>
-          <span className="text-xs font-semibold text-white">Tables Extracted 100%</span>
+          <div>
+            <div className="text-xs font-bold text-white">Financial_Report.xlsx</div>
+            <div className="text-[10px] text-purple-200">Tables Extracted 100%</div>
+          </div>
         </div>
       </div>
 
