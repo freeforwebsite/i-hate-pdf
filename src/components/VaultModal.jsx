@@ -9,14 +9,23 @@ import {
   ShieldCheck, 
   Sparkles,
   HardDrive,
-  RefreshCw
+  RefreshCw,
+  Cloud,
+  Settings,
+  ExternalLink,
+  Check
 } from 'lucide-react';
 import { getVaultFiles, deleteVaultFile, clearVault, getRemainingTimeString } from '../utils/fileVault';
 import { downloadBlob } from '../utils/pdfEngine';
+import { isCloudinaryConfigured, setCloudinaryConfig, CLOUDINARY_CONFIG } from '../utils/cloudinary';
 
 export default function VaultModal({ isOpen, onClose, onSelectTool }) {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showCloudSettings, setShowCloudSettings] = useState(false);
+  const [cloudName, setCloudName] = useState(CLOUDINARY_CONFIG.cloudName || '');
+  const [uploadPreset, setUploadPreset] = useState(CLOUDINARY_CONFIG.uploadPreset || '');
+  const [savedSuccess, setSavedSuccess] = useState(false);
 
   const loadFiles = async () => {
     setLoading(true);
@@ -28,13 +37,19 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
   useEffect(() => {
     if (isOpen) {
       loadFiles();
+      setCloudName(localStorage.getItem('ihatepdf_cloudinary_name') || '');
+      setUploadPreset(localStorage.getItem('ihatepdf_cloudinary_preset') || '');
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleDownload = (file) => {
-    downloadBlob(file.blob, file.fileName);
+    if (file.cloudUrl) {
+      window.open(file.cloudUrl, '_blank');
+    } else if (file.blob) {
+      downloadBlob(file.blob, file.fileName);
+    }
   };
 
   const handleDelete = async (id, e) => {
@@ -50,6 +65,16 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
     }
   };
 
+  const handleSaveCloudinary = (e) => {
+    e.preventDefault();
+    setCloudinaryConfig(cloudName.trim(), uploadPreset.trim());
+    setSavedSuccess(true);
+    setTimeout(() => {
+      setSavedSuccess(false);
+      setShowCloudSettings(false);
+    }, 1200);
+  };
+
   const formatBytes = (bytes) => {
     if (!bytes) return '0 B';
     const k = 1024;
@@ -59,6 +84,7 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
   };
 
   const totalSize = files.reduce((acc, f) => acc + (f.fileSize || 0), 0);
+  const isCloudReady = isCloudinaryConfigured();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-purple-950/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -80,20 +106,88 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
                 <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
                   Auto-Saved 7 Days
                 </span>
+                {isCloudReady && (
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
+                    <Cloud className="w-3 h-3" /> Cloud Active
+                  </span>
+                )}
               </div>
               <p className="text-xs text-purple-300">
-                Your edited documents are saved securely in your browser for 7 days
+                Documents stay accessible for 7 days even if cache is cleared
               </p>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-200 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCloudSettings(!showCloudSettings)}
+              className="p-2 rounded-xl bg-purple-900/50 hover:bg-purple-800 text-purple-200 hover:text-white transition-colors"
+              title="Cloudinary Cloud Storage Settings"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-200 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+
+        {/* Cloudinary Configuration Drawer */}
+        {showCloudSettings && (
+          <form onSubmit={handleSaveCloudinary} className="my-4 p-4 rounded-2xl bg-purple-900/60 border border-purple-500/40 space-y-3 shrink-0 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-cyan-300">
+                <Cloud className="w-4 h-4" />
+                <span>Cloudinary 7-Day Cloud Persistence</span>
+              </div>
+              <a 
+                href="https://cloudinary.com/users/register_free" 
+                target="_blank" 
+                rel="noreferrer" 
+                className="text-[10px] text-purple-300 hover:underline flex items-center gap-1"
+              >
+                Get Free Cloudinary API <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] text-purple-200 font-bold mb-1 uppercase tracking-wider">Cloud Name</label>
+                <input 
+                  type="text" 
+                  value={cloudName}
+                  onChange={(e) => setCloudName(e.target.value)}
+                  placeholder="e.g. demo" 
+                  className="w-full px-3 py-2 rounded-xl bg-purple-950/80 border border-purple-700 text-white text-xs focus:outline-none focus:border-amber-400"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-purple-200 font-bold mb-1 uppercase tracking-wider">Unsigned Upload Preset</label>
+                <input 
+                  type="text" 
+                  value={uploadPreset}
+                  onChange={(e) => setUploadPreset(e.target.value)}
+                  placeholder="e.g. my_unsigned_preset" 
+                  className="w-full px-3 py-2 rounded-xl bg-purple-950/80 border border-purple-700 text-white text-xs focus:outline-none focus:border-amber-400"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[10px] text-purple-300">Enables cross-device download links for 7 days.</span>
+              <button
+                type="submit"
+                className="px-4 py-1.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-purple-950 font-bold text-xs shadow transition-all flex items-center gap-1"
+              >
+                {savedSuccess ? <Check className="w-3.5 h-3.5" /> : null}
+                <span>{savedSuccess ? 'Saved!' : 'Save Credentials'}</span>
+              </button>
+            </div>
+          </form>
+        )}
 
         {/* Stats Bar */}
         <div className="flex items-center justify-between py-3 px-4 my-4 bg-purple-900/40 rounded-2xl border border-purple-700/40 text-xs shrink-0">
@@ -160,6 +254,11 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
                         <Clock className="w-2.5 h-2.5" />
                         {getRemainingTimeString(file.expiresAt)}
                       </span>
+                      {file.cloudUrl && (
+                        <span className="text-cyan-300 font-bold flex items-center gap-0.5">
+                          <Cloud className="w-2.5 h-2.5" /> Cloud
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -191,9 +290,9 @@ export default function VaultModal({ isOpen, onClose, onSelectTool }) {
         <div className="pt-4 mt-4 border-t border-purple-800/60 flex items-center justify-between text-[11px] text-purple-300 shrink-0">
           <div className="flex items-center gap-1.5 text-emerald-400">
             <ShieldCheck className="w-4 h-4" />
-            <span>100% Private in your browser</span>
+            <span>100% Secure • Auto-expiring in 7 days</span>
           </div>
-          <span className="text-purple-400">Files automatically expire after 7 days</span>
+          <span className="text-purple-400">Files automatically clean up after 7 days</span>
         </div>
 
       </div>

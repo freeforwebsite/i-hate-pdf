@@ -24,12 +24,22 @@ function openDB() {
   });
 }
 
-// Save a processed file to 7-day storage
+import { uploadToCloudinary } from './cloudinary';
+
+// Save a processed file to 7-day storage (Local + Cloudinary Cloud)
 export async function saveFileToVault({ fileName, toolId, toolName, blob, fileSize }) {
   try {
     const db = await openDB();
     const now = Date.now();
     const expiresAt = now + SEVEN_DAYS_MS;
+
+    // Optional Cloudinary Upload in parallel
+    let cloudData = null;
+    try {
+      cloudData = await uploadToCloudinary(blob, fileName);
+    } catch (e) {
+      console.warn('Cloudinary backup skipped:', e);
+    }
 
     const fileRecord = {
       id: 'file_' + now + '_' + Math.random().toString(36).substring(2, 7),
@@ -37,6 +47,8 @@ export async function saveFileToVault({ fileName, toolId, toolName, blob, fileSi
       toolId,
       toolName: toolName || toolId,
       blob,
+      cloudUrl: cloudData?.secureUrl || null,
+      cloudPublicId: cloudData?.publicId || null,
       fileSize: fileSize || blob.size,
       mimeType: blob.type || 'application/pdf',
       createdAt: now,
