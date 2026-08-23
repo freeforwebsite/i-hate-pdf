@@ -2,7 +2,7 @@ import React from 'react';
 import { FileText, Shield, Heart } from 'lucide-react';
 import { ALL_TOOLS_LIST } from '../data/toolsData';
 
-export default function Footer({ onSelectTool }) {
+export default function Footer({ onSelectTool, onOpenAnalytics }) {
   const popularTools = ALL_TOOLS_LIST.slice(0, 12);
 
   return (
@@ -71,12 +71,19 @@ export default function Footer({ onSelectTool }) {
 
           {/* Security & Legal Column 3 */}
           <div className="space-y-3">
-            <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">Security & Legal</h4>
+            <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">Security & Analytics</h4>
             <ul className="space-y-2 text-[11px]">
+              <li>
+                <button 
+                  onClick={onOpenAnalytics}
+                  className="text-amber-300 hover:text-amber-200 font-bold transition-colors flex items-center gap-1.5"
+                >
+                  <span>📊 Live Site Analytics</span>
+                </button>
+              </li>
               <li><a href="#" className="hover:text-amber-400 transition-colors">Privacy Policy</a></li>
               <li><a href="#" className="hover:text-amber-400 transition-colors">Terms of Service</a></li>
               <li><a href="#" className="hover:text-amber-400 transition-colors">GDPR & Data Protection</a></li>
-              <li><a href="#" className="hover:text-amber-400 transition-colors">API Documentation</a></li>
               <li><a href="#" className="hover:text-amber-400 transition-colors">Contact Support</a></li>
             </ul>
           </div>

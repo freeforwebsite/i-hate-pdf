@@ -9,9 +9,13 @@ import MobileBottomNav from './components/MobileBottomNav';
 import SearchModal from './components/SearchModal';
 import VaultModal from './components/VaultModal';
 import AuthModal from './components/AuthModal';
+import AdminAnalyticsModal from './components/AdminAnalyticsModal';
 import { ALL_TOOLS_LIST } from './data/toolsData';
 import { Clock, FileText, Trash2 } from 'lucide-react';
 import { getCurrentUser, logoutUser } from './utils/auth';
+import { trackVisit } from './utils/analytics';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home'); // 'home', 'tool', 'history'
@@ -21,8 +25,14 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isVaultOpen, setIsVaultOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isAdminAnalyticsOpen, setIsAdminAnalyticsOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [recentHistory, setRecentHistory] = useState([]);
+
+  // Track page visit on mount
+  useEffect(() => {
+    trackVisit();
+  }, []);
 
   // Load history from localStorage
   useEffect(() => {
@@ -34,12 +44,16 @@ export default function App() {
     }
   }, []);
 
-  // Keyboard shortcut for Cmd+K / Ctrl+K
+  // Keyboard shortcuts: Cmd+K / Ctrl+K for Search, Ctrl+Shift+A for Analytics
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsSearchOpen(true);
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.shiftKey || e.altKey) && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        setIsAdminAnalyticsOpen(prev => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -211,7 +225,10 @@ export default function App() {
       </main>
 
       {/* 3. FOOTER */}
-      <Footer onSelectTool={handleSelectTool} />
+      <Footer 
+        onSelectTool={handleSelectTool} 
+        onOpenAnalytics={() => setIsAdminAnalyticsOpen(true)}
+      />
 
       {/* 4. MOBILE BOTTOM NAVIGATION */}
       <MobileBottomNav 
@@ -257,6 +274,16 @@ export default function App() {
           setIsVaultOpen(true);
         }}
       />
+
+      {/* 8. ADMIN ANALYTICS & MEMBER USAGE DASHBOARD */}
+      <AdminAnalyticsModal 
+        isOpen={isAdminAnalyticsOpen}
+        onClose={() => setIsAdminAnalyticsOpen(false)}
+      />
+
+      {/* 9. VERCEL PRODUCTION TELEMETRY */}
+      <Analytics />
+      <SpeedInsights />
 
     </div>
   );

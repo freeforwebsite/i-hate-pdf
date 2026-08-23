@@ -36,6 +36,7 @@ import {
   downloadBlob 
 } from '../utils/pdfEngine';
 import { saveFileToVault } from '../utils/fileVault';
+import { trackToolUsage } from '../utils/analytics';
 
 export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
   const [files, setFiles] = useState([]);
@@ -234,13 +235,18 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
       // Save processed file to 7-day vault
       if (res) {
         const fileBlob = res.blob || (res.bytes ? new Blob([res.bytes], { type: 'application/pdf' }) : null);
+        const finalSize = res.size || res.newSize || fileBlob?.size || 0;
+
+        // Track Analytics
+        trackToolUsage(tool.id, tool.name, finalSize);
+
         if (fileBlob) {
           saveFileToVault({
             fileName: res.filename,
             toolId: tool.id,
             toolName: tool.name,
             blob: fileBlob,
-            fileSize: res.size || res.newSize || fileBlob.size
+            fileSize: finalSize
           }).catch(console.error);
         }
       }
