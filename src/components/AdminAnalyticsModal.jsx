@@ -91,45 +91,56 @@ export default function AdminAnalyticsModal({ isOpen, onClose }) {
           </div>
         </div>
 
-        {/* 4 Core Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-4 shrink-0">
+        {/* 5 Core Metric Cards Including Live Users */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 my-4 shrink-0">
           
+          {/* LIVE USERS CARD */}
+          <div className="p-4 rounded-2xl bg-gradient-to-tr from-emerald-950/80 to-purple-900/60 border border-emerald-500/40 relative overflow-hidden">
+            <div className="flex items-center justify-between text-emerald-300 mb-1.5">
+              <span className="text-xs font-black uppercase tracking-wider">Live Online</span>
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+            </div>
+            <div className="text-2xl font-black text-emerald-300 flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block shadow-lg shadow-emerald-400/50" />
+              <span>{summary.liveUsers || 1}</span>
+            </div>
+            <span className="text-[10px] text-emerald-400 mt-1 block font-bold">Active Right Now</span>
+          </div>
+
           <div className="p-4 rounded-2xl bg-purple-900/40 border border-purple-700/40">
             <div className="flex items-center justify-between text-purple-300 mb-1.5">
               <span className="text-xs font-bold uppercase tracking-wider">Unique Members</span>
               <Users className="w-4 h-4 text-amber-400" />
             </div>
             <div className="text-2xl font-black text-white">{summary.uniqueVisitors}</div>
-            <span className="text-[10px] text-emerald-400 flex items-center gap-0.5 mt-1 font-semibold">
-              <TrendingUp className="w-3 h-3" /> Unique Device/IP
-            </span>
+            <span className="text-[10px] text-purple-300 mt-1 block">Unique Device/IP</span>
           </div>
 
           <div className="p-4 rounded-2xl bg-purple-900/40 border border-purple-700/40">
             <div className="flex items-center justify-between text-purple-300 mb-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider">Total Pageviews</span>
+              <span className="text-xs font-bold uppercase tracking-wider">Pageviews</span>
               <Activity className="w-4 h-4 text-cyan-400" />
             </div>
             <div className="text-2xl font-black text-white">{summary.pageViews}</div>
-            <span className="text-[10px] text-purple-300 mt-1 block">{summary.returningVisits} Returning Views</span>
+            <span className="text-[10px] text-purple-300 mt-1 block">{summary.returningVisits} Returning</span>
           </div>
 
           <div className="p-4 rounded-2xl bg-purple-900/40 border border-purple-700/40">
             <div className="flex items-center justify-between text-purple-300 mb-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider">Files Processed</span>
-              <FileText className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-bold uppercase tracking-wider">Processed</span>
+              <FileText className="w-4 h-4 text-amber-400" />
             </div>
             <div className="text-2xl font-black text-white">{summary.totalProcessed}</div>
-            <span className="text-[10px] text-emerald-300 mt-1 block">Across 35 Tools</span>
+            <span className="text-[10px] text-amber-300 mt-1 block">Across 35 Tools</span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-purple-900/40 border border-purple-700/40">
+          <div className="p-4 rounded-2xl bg-purple-900/40 border border-purple-700/40 col-span-2 sm:col-span-1">
             <div className="flex items-center justify-between text-purple-300 mb-1.5">
               <span className="text-xs font-bold uppercase tracking-wider">Vault Files</span>
               <HardDrive className="w-4 h-4 text-pink-400" />
             </div>
             <div className="text-2xl font-black text-white">{vaultFilesCount}</div>
-            <span className="text-[10px] text-pink-300 mt-1 block">7-Day Active Files</span>
+            <span className="text-[10px] text-pink-300 mt-1 block">7-Day Cloud</span>
           </div>
 
         </div>

@@ -1,8 +1,9 @@
-// I HATE PDF — Analytics & Usage Tracking Engine (Unique Member & IP Deduplication)
+// I HATE PDF — Analytics & Real-Time Live Users Telemetry Engine
 
 const ANALYTICS_STORAGE_KEY = 'ihatepdf_usage_analytics';
 const VISITOR_ID_KEY = 'ihatepdf_unique_visitor_id';
 const SESSION_ACTIVE_KEY = 'ihatepdf_session_active';
+const HEARTBEAT_STORAGE_KEY = 'ihatepdf_live_pings';
 
 function getStoredData() {
   try {
@@ -36,7 +37,7 @@ export function trackVisit() {
   const existingVisitorId = localStorage.getItem(VISITOR_ID_KEY);
   const isSessionActive = sessionStorage.getItem(SESSION_ACTIVE_KEY);
 
-  // 1. Check if this is a brand new unique user
+  // Check if this is a brand new unique user
   if (!existingVisitorId) {
     const newVisitorId = 'vis_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
     localStorage.setItem(VISITOR_ID_KEY, newVisitorId);
@@ -55,6 +56,66 @@ export function trackVisit() {
   data.pageViews = (data.pageViews || 0) + 1;
   data.lastActive = new Date().toISOString();
   saveData(data);
+}
+
+// Calculate active live users
+export function getLiveUsersCount() {
+  try {
+    const now = Date.now();
+    const raw = localStorage.getItem(HEARTBEAT_STORAGE_KEY);
+    let pings = raw ? JSON.parse(raw) : {};
+
+    // Filter out pings older than 12 seconds
+    const activeIds = Object.keys(pings).filter(id => now - pings[id] < 12000);
+    return Math.max(1, activeIds.length);
+  } catch (e) {
+    return 1;
+  }
+}
+
+// Start continuous heartbeat for live user tracking
+export function startLiveHeartbeat(onUpdate) {
+  const tabId = 'tab_' + Math.random().toString(36).substring(2, 9);
+
+  const ping = () => {
+    try {
+      const now = Date.now();
+      const raw = localStorage.getItem(HEARTBEAT_STORAGE_KEY);
+      let pings = raw ? JSON.parse(raw) : {};
+      
+      // Clean stale pings
+      const cleanPings = {};
+      Object.keys(pings).forEach(id => {
+        if (now - pings[id] < 12000) cleanPings[id] = pings[id];
+      });
+
+      cleanPings[tabId] = now;
+      localStorage.setItem(HEARTBEAT_STORAGE_KEY, JSON.stringify(cleanPings));
+
+      const count = Math.max(1, Object.keys(cleanPings).length);
+      if (onUpdate) onUpdate(count);
+    } catch (e) {}
+  };
+
+  // Immediate ping
+  ping();
+  const interval = setInterval(ping, 4000);
+
+  // Cleanup on tab close
+  const cleanup = () => {
+    clearInterval(interval);
+    try {
+      const raw = localStorage.getItem(HEARTBEAT_STORAGE_KEY);
+      if (raw) {
+        const pings = JSON.parse(raw);
+        delete pings[tabId];
+        localStorage.setItem(HEARTBEAT_STORAGE_KEY, JSON.stringify(pings));
+      }
+    } catch (e) {}
+  };
+
+  window.addEventListener('beforeunload', cleanup);
+  return cleanup;
 }
 
 // Track when a user processes any document tool
@@ -79,7 +140,7 @@ export function trackToolUsage(toolId, toolName, fileSizeBytes = 0) {
   saveData(data);
 }
 
-// Get compiled metrics summary with deduplicated users
+// Get compiled metrics summary
 export function getAnalyticsSummary() {
   const data = getStoredData();
   
@@ -92,6 +153,7 @@ export function getAnalyticsSummary() {
     uniqueVisitors: Math.max(1, data.uniqueVisitors || 1),
     pageViews: Math.max(1, data.pageViews || 1),
     returningVisits: data.returningVisits || 0,
+    liveUsers: getLiveUsersCount(),
     totalProcessed: data.totalProcessed || 0,
     totalBytes: data.totalBytes || 0,
     popularTools,

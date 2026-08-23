@@ -13,7 +13,7 @@ import AdminAnalyticsModal from './components/AdminAnalyticsModal';
 import { ALL_TOOLS_LIST } from './data/toolsData';
 import { Clock, FileText, Trash2 } from 'lucide-react';
 import { getCurrentUser, logoutUser } from './utils/auth';
-import { trackVisit } from './utils/analytics';
+import { trackVisit, startLiveHeartbeat } from './utils/analytics';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
@@ -29,9 +29,11 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [recentHistory, setRecentHistory] = useState([]);
 
-  // Track page visit on mount
+  // Track page visit & start real-time live users heartbeat on mount
   useEffect(() => {
     trackVisit();
+    const cleanup = startLiveHeartbeat();
+    return () => cleanup();
   }, []);
 
   // Load history from localStorage
