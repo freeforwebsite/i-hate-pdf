@@ -18,7 +18,9 @@ export default function Footer({ onSelectTool, onOpenAnalytics }) {
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-400 flex items-center justify-center text-purple-950 font-black">
                 <FileText className="w-4 h-4 text-white" />
               </div>
-              <span className="text-xl font-black text-white font-['Outfit']">I HATE PDF</span>
+              <span className="text-xl font-light tracking-[0.18em] uppercase text-white font-['Outfit']">
+                I HATE <span className="font-black text-amber-400">PDF</span>
+              </span>
             </div>
             <p className="text-purple-300 leading-relaxed text-[11px]">
               Every tool you need to work with PDFs and Word documents in one place without the frustration. 100% web-based and free.

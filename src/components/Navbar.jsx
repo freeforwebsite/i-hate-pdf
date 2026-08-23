@@ -65,13 +65,13 @@ export default function Navbar({ onSelectTool, onGoHome, activeTab, onOpenSearch
                 <HeartCrack className="w-5 h-5 text-rose-400 group-hover:rotate-12 transition-transform" />
               </div>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl sm:text-2xl font-black tracking-tight text-white font-['Outfit']">
-                  I HATE PDF
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xl sm:text-2xl font-light tracking-[0.18em] uppercase text-white font-['Outfit']">
+                  I HATE <span className="font-black text-amber-400">PDF</span>
                 </span>
               </div>
-              <p className="text-[10px] text-purple-300/80 hidden sm:block">Because Working With PDFs Sucks</p>
+              <p className="text-[10px] text-purple-300/70 font-light tracking-wide hidden sm:block">Because Working With PDFs Sucks</p>
             </div>
           </div>
 
