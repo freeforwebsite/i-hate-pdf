@@ -32,6 +32,7 @@ import {
   redactPDF,
   pdfToMarkdownExport,
   exportDataFormat,
+  organizePDFPages,
   compressPDF, 
   downloadBlob 
 } from '../utils/pdfEngine';
@@ -48,7 +49,8 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
   
   // Custom tool options state
   const [splitRange, setSplitRange] = useState('');
-  const [rotateAngle, setRotateAngle] = useState(90);
+  const [pageOrderStr, setPageOrderStr] = useState('');
+  const [rotateAngle, setRotateAngle] = useState(0);
   const [deletePagesStr, setDeletePagesStr] = useState('');
   const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL');
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.25);
@@ -145,12 +147,14 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
         case 'pdf-to-jpg':
           res = await splitPDF(files[0], splitRange);
           break;
-        case 'rotate':
         case 'reorder-pages':
+          res = await organizePDFPages(files[0], { pageOrderStr, deletePagesStr, rotationAngle: rotateAngle });
+          break;
+        case 'rotate':
         case 'crop-pdf':
         case 'scan-to-pdf':
         case 'edit-pdf':
-          res = await rotatePDF(files[0], rotateAngle);
+          res = await rotatePDF(files[0], rotateAngle || 90);
           break;
         case 'delete-pages':
           res = await deletePagesPDF(files[0], deletePagesStr);
@@ -484,8 +488,84 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                 </div>
               )}
 
-              {/* 3. Rotate Options */}
-              {['rotate', 'reorder-pages', 'crop-pdf'].includes(tool.id) && (
+              {/* 3. Organize PDF (Reorder, Delete, Rotate) */}
+              {tool.id === 'reorder-pages' && (
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-700">
+                        🔄 Move & Reorder Pages (Specify new order)
+                      </label>
+                      <div className="flex items-center gap-1.5 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => setPageOrderStr('reverse')}
+                          className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-bold hover:bg-purple-200"
+                        >
+                          Reverse All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPageOrderStr('')}
+                          className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold hover:bg-slate-200"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+                    <input 
+                      type="text"
+                      value={pageOrderStr === 'reverse' ? 'Reverse Order' : pageOrderStr}
+                      onChange={(e) => setPageOrderStr(e.target.value)}
+                      placeholder="e.g. 2, 1, 4, 3, 5 (Leave empty for standard order)"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-medium focus:outline-none focus:border-purple-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      🗑️ Delete Pages (Remove unwanted pages from the document)
+                    </label>
+                    <input 
+                      type="text"
+                      value={deletePagesStr}
+                      onChange={(e) => setDeletePagesStr(e.target.value)}
+                      placeholder="e.g. 2, 4-6 (Leave empty to keep all)"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-medium focus:outline-none focus:border-purple-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">
+                      🔁 Rotate Orientation (Optional)
+                    </label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { angle: 0, label: '0° Normal' },
+                        { angle: 90, label: '90° CW' },
+                        { angle: 180, label: '180° Flip' },
+                        { angle: 270, label: '270° CCW' },
+                      ].map(opt => (
+                        <button
+                          key={opt.angle}
+                          type="button"
+                          onClick={() => setRotateAngle(opt.angle)}
+                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
+                            rotateAngle === opt.angle 
+                              ? 'bg-purple-700 text-white border-purple-700 shadow-md' 
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-purple-50'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Standalone Rotate & Crop Options */}
+              {['rotate', 'crop-pdf'].includes(tool.id) && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-2">
                     Select Rotation Angle
