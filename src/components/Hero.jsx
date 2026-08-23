@@ -22,9 +22,9 @@ export default function Hero({ searchQuery, setSearchQuery, onSelectTool, onScro
 
       {/* Floating 3D Document Badges (4 Sides & Corners) */}
       {/* 1. TOP-LEFT: PDF */}
-      <div className="hidden lg:block absolute top-12 left-6 xl:left-20 animate-float-1 pointer-events-none select-none">
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-2xl flex items-center gap-3 rotate-[-6deg]">
-          <div className="w-10 h-10 rounded-xl bg-rose-500 flex items-center justify-center font-black text-xs text-white shadow-lg shadow-rose-500/30">
+      <div className="hidden lg:block absolute top-24 xl:top-32 left-4 xl:left-12 animate-float-1 pointer-events-none select-none z-0">
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3.5 shadow-2xl flex items-center gap-3 rotate-[-6deg]">
+          <div className="w-9 h-9 rounded-xl bg-rose-500 flex items-center justify-center font-black text-xs text-white shadow-lg shadow-rose-500/30">
             PDF
           </div>
           <div>
@@ -35,9 +35,9 @@ export default function Hero({ searchQuery, setSearchQuery, onSelectTool, onScro
       </div>
 
       {/* 2. TOP-RIGHT: DOCX */}
-      <div className="hidden lg:block absolute top-16 right-6 xl:right-20 animate-float-2 pointer-events-none select-none">
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-2xl flex items-center gap-3 rotate-[8deg]">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-black text-xs text-white shadow-lg shadow-blue-500/30">
+      <div className="hidden lg:block absolute top-28 xl:top-36 right-4 xl:right-12 animate-float-2 pointer-events-none select-none z-0">
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3.5 shadow-2xl flex items-center gap-3 rotate-[8deg]">
+          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center font-black text-xs text-white shadow-lg shadow-blue-500/30">
             DOCX
           </div>
           <div>
@@ -48,8 +48,8 @@ export default function Hero({ searchQuery, setSearchQuery, onSelectTool, onScro
       </div>
 
       {/* 3. BOTTOM-LEFT: PPTX */}
-      <div className="hidden xl:block absolute bottom-12 left-20 animate-float-2 pointer-events-none select-none">
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3.5 shadow-2xl flex items-center gap-2.5 rotate-[6deg]">
+      <div className="hidden xl:block absolute bottom-16 left-6 xl:left-12 animate-float-2 pointer-events-none select-none z-0">
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 shadow-2xl flex items-center gap-2.5 rotate-[6deg]">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center font-bold text-[10px] text-white shadow-md">
             PPTX
           </div>
@@ -61,8 +61,8 @@ export default function Hero({ searchQuery, setSearchQuery, onSelectTool, onScro
       </div>
 
       {/* 4. BOTTOM-RIGHT: XLSX */}
-      <div className="hidden xl:block absolute bottom-12 right-20 animate-float-1 pointer-events-none select-none">
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3.5 shadow-2xl flex items-center gap-2.5 rotate-[-6deg]">
+      <div className="hidden xl:block absolute bottom-16 right-6 xl:right-12 animate-float-1 pointer-events-none select-none z-0">
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 shadow-2xl flex items-center gap-2.5 rotate-[-6deg]">
           <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-bold text-[10px] text-white shadow-md">
             XLSX
           </div>
@@ -150,7 +150,7 @@ export default function Hero({ searchQuery, setSearchQuery, onSelectTool, onScro
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-amber-400" />
-            <span>Files Auto-Deleted After 2 Hrs</span>
+            <span>7-Day Auto-Saved Vault</span>
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-yellow-400" />
