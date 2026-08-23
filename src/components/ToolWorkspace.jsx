@@ -423,19 +423,50 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
             </div>
           )}
 
-          {/* DYNAMIC TOOL OPTIONS (If applicable) */}
-          {files.length > 0 && tool.hasOptions && (
+          {/* DYNAMIC TOOL OPTIONS & PARAMETERS */}
+          {files.length > 0 && (
+            ['split', 'extract-pages', 'rotate', 'reorder-pages', 'crop-pdf', 'delete-pages', 'watermark-pdf', 'page-numbers', 'header-footer', 'compress', 'protect-pdf', 'unlock-pdf', 'sign-pdf'].includes(tool.id)
+          ) && (
             <div className="bg-white rounded-3xl p-6 border border-purple-100 shadow-sm space-y-4">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
                 <Sliders className="w-4 h-4 text-purple-600" />
                 <span>Tool Options & Parameters</span>
               </div>
 
-              {/* Split Options */}
-              {tool.optionsType === 'split' && (
+              {/* 1. Page Numbers & Header/Footer Placement */}
+              {['page-numbers', 'header-footer'].includes(tool.id) && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-2">
+                    Page Number Placement
+                  </label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { id: 'bottom-center', label: 'Bottom Center' },
+                      { id: 'bottom-right', label: 'Bottom Right' },
+                      { id: 'top-right', label: 'Top Right' },
+                    ].map(pos => (
+                      <button
+                        key={pos.id}
+                        type="button"
+                        onClick={() => setPageNumberPos(pos.id)}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all ${
+                          pageNumberPos === pos.id 
+                            ? 'bg-purple-700 text-white border-purple-700 shadow-md' 
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-purple-50'
+                        }`}
+                      >
+                        {pos.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Split & Extract Pages Options */}
+              {['split', 'extract-pages'].includes(tool.id) && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Page Range (Leave empty to extract all pages into individual files)
+                    Page Range (e.g. 1-3, 5, 8-10 — or leave blank to extract all pages)
                   </label>
                   <input 
                     type="text"
@@ -447,8 +478,8 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                 </div>
               )}
 
-              {/* Rotate Options */}
-              {tool.optionsType === 'rotate' && (
+              {/* 3. Rotate Options */}
+              {['rotate', 'reorder-pages', 'crop-pdf'].includes(tool.id) && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-2">
                     Select Rotation Angle
@@ -476,11 +507,11 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                 </div>
               )}
 
-              {/* Delete Pages Options */}
-              {tool.optionsType === 'delete-pages' && (
+              {/* 4. Delete Pages Options */}
+              {tool.id === 'delete-pages' && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Pages to Delete (Comma-separated numbers or ranges)
+                    Pages to Remove (e.g. 2, 4-6)
                   </label>
                   <input 
                     type="text"
@@ -492,8 +523,8 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                 </div>
               )}
 
-              {/* Watermark Options */}
-              {tool.optionsType === 'watermark' && (
+              {/* 5. Watermark Options */}
+              {tool.id === 'watermark-pdf' && (
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -524,37 +555,8 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                 </div>
               )}
 
-              {/* Page Numbers Position */}
-              {tool.optionsType === 'page-numbers' && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-2">
-                    Page Number Placement
-                  </label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { id: 'bottom-center', label: 'Bottom Center' },
-                      { id: 'bottom-right', label: 'Bottom Right' },
-                      { id: 'top-right', label: 'Top Right' },
-                    ].map(pos => (
-                      <button
-                        key={pos.id}
-                        type="button"
-                        onClick={() => setPageNumberPos(pos.id)}
-                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all ${
-                          pageNumberPos === pos.id 
-                            ? 'bg-purple-700 text-white border-purple-700 shadow-md' 
-                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-purple-50'
-                        }`}
-                      >
-                        {pos.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Compression Level */}
-              {tool.optionsType === 'compress' && (
+              {/* 6. Compression Level */}
+              {['compress', 'repair-pdf', 'ocr-pdf', 'pdf-to-pdfa'].includes(tool.id) && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
                     { id: 'low', name: 'Low Compression', desc: 'High quality, ~15% smaller' },
@@ -574,6 +576,22 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                       <div className="text-[10px] text-slate-500">{lvl.desc}</div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* 7. Password Protection */}
+              {['protect-pdf', 'unlock-pdf'].includes(tool.id) && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    {tool.id === 'protect-pdf' ? 'Enter Password to Encrypt Document' : 'Enter Password to Decrypt'}
+                  </label>
+                  <input 
+                    type="password"
+                    value={protectPassword}
+                    onChange={(e) => setProtectPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-medium focus:outline-none focus:border-purple-600"
+                  />
                 </div>
               )}
 
