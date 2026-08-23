@@ -96,22 +96,31 @@ export default function AdminAnalyticsModal({ isOpen, onClose }) {
           
           <div className="p-4 rounded-2xl bg-purple-900/40 border border-purple-700/40">
             <div className="flex items-center justify-between text-purple-300 mb-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider">Pageviews</span>
+              <span className="text-xs font-bold uppercase tracking-wider">Unique Members</span>
               <Users className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="text-2xl font-black text-white">{summary.totalVisits}</div>
+            <div className="text-2xl font-black text-white">{summary.uniqueVisitors}</div>
             <span className="text-[10px] text-emerald-400 flex items-center gap-0.5 mt-1 font-semibold">
-              <TrendingUp className="w-3 h-3" /> Active Traffic
+              <TrendingUp className="w-3 h-3" /> Unique Device/IP
             </span>
           </div>
 
           <div className="p-4 rounded-2xl bg-purple-900/40 border border-purple-700/40">
             <div className="flex items-center justify-between text-purple-300 mb-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider">Total Pageviews</span>
+              <Activity className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div className="text-2xl font-black text-white">{summary.pageViews}</div>
+            <span className="text-[10px] text-purple-300 mt-1 block">{summary.returningVisits} Returning Views</span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-purple-900/40 border border-purple-700/40">
+            <div className="flex items-center justify-between text-purple-300 mb-1.5">
               <span className="text-xs font-bold uppercase tracking-wider">Files Processed</span>
-              <FileText className="w-4 h-4 text-cyan-400" />
+              <FileText className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-black text-white">{summary.totalProcessed}</div>
-            <span className="text-[10px] text-purple-300 mt-1 block">Across 35 Tools</span>
+            <span className="text-[10px] text-emerald-300 mt-1 block">Across 35 Tools</span>
           </div>
 
           <div className="p-4 rounded-2xl bg-purple-900/40 border border-purple-700/40">
@@ -120,16 +129,7 @@ export default function AdminAnalyticsModal({ isOpen, onClose }) {
               <HardDrive className="w-4 h-4 text-pink-400" />
             </div>
             <div className="text-2xl font-black text-white">{vaultFilesCount}</div>
-            <span className="text-[10px] text-pink-300 mt-1 block">Saved in 7-Day Vault</span>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-purple-900/40 border border-purple-700/40">
-            <div className="flex items-center justify-between text-purple-300 mb-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider">Total Bandwidth</span>
-              <Globe className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div className="text-2xl font-black text-white">{formatBytes(summary.totalBytes)}</div>
-            <span className="text-[10px] text-emerald-300 mt-1 block">Client + Encrypted Cloud Vault</span>
+            <span className="text-[10px] text-pink-300 mt-1 block">7-Day Active Files</span>
           </div>
 
         </div>
