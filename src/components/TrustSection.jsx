@@ -24,9 +24,9 @@ export default function TrustSection() {
       icon: Cloud,
       gradient: 'from-purple-600 to-indigo-600',
       shadow: 'shadow-purple-500/20',
-      badge: '100 GB Pool',
+      badge: 'Cloud Vault',
       title: '7-Day Encrypted File Vault',
-      desc: 'Logged-in members get automatic 7-day cloud preservation powered by our 100 GB multi-cloud pool with 1-click downloads.'
+      desc: 'Logged-in members get automatic 7-day cloud preservation powered by high-speed multi-cloud storage with 1-click downloads.'
     },
     {
       icon: Zap,
@@ -75,7 +75,7 @@ export default function TrustSection() {
           Engineered for Speed, Privacy & Precision
         </h2>
         <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto">
-          Built with bank-grade security standards, 100 GB multi-cloud failover, and client-side processing engines.
+          Built with bank-grade security standards, encrypted multi-cloud failover, and client-side processing engines.
         </p>
       </div>
 

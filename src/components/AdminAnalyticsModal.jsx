@@ -129,7 +129,7 @@ export default function AdminAnalyticsModal({ isOpen, onClose }) {
               <Globe className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-black text-white">{formatBytes(summary.totalBytes)}</div>
-            <span className="text-[10px] text-emerald-300 mt-1 block">Client + 100GB Cloud</span>
+            <span className="text-[10px] text-emerald-300 mt-1 block">Client + Encrypted Cloud Vault</span>
           </div>
 
         </div>
