@@ -139,7 +139,7 @@ export default function Navbar({ onSelectTool, onGoHome, activeTab, onOpenSearch
               <div className="flex items-center gap-2">
                 <button
                   onClick={onOpenVault}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-900/80 border border-purple-400/40 hover:border-amber-400/60 transition-all text-xs font-bold text-white"
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-purple-900/80 border border-purple-400/40 hover:border-amber-400/60 transition-all text-xs font-bold text-white shadow-md"
                   title="My Account & Vault"
                 >
                   <img src={user.avatar} alt="Avatar" className="w-5 h-5 rounded-full bg-purple-950" />
@@ -147,38 +147,28 @@ export default function Navbar({ onSelectTool, onGoHome, activeTab, onOpenSearch
                 </button>
                 <button
                   onClick={onLogout}
-                  className="text-[11px] text-purple-300 hover:text-rose-300 transition-colors px-2 py-1"
+                  className="text-xs text-purple-300 hover:text-rose-300 font-semibold transition-colors px-2 py-1"
                   title="Log out"
                 >
                   Logout
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={onOpenAuth}
-                  className="px-3 py-2 rounded-xl text-purple-200 hover:text-white text-xs font-bold hover:bg-white/[0.06] transition-all"
+                  className="px-3.5 py-2 rounded-xl text-purple-200 hover:text-white text-xs sm:text-sm font-bold hover:bg-white/[0.08] transition-all"
                 >
                   Log in
                 </button>
                 <button
                   onClick={onOpenAuth}
-                  className="hidden sm:inline-flex px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md transition-all"
+                  className="px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-purple-950 font-black text-xs sm:text-sm shadow-xl shadow-amber-400/25 transition-all hover:scale-105 active:scale-95"
                 >
                   Sign up
                 </button>
               </div>
             )}
-
-            {/* Start Free CTA */}
-            <button 
-              onClick={() => onSelectTool('merge')}
-              className="px-4 sm:px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-purple-950 font-black text-xs sm:text-sm shadow-xl shadow-amber-400/25 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 shrink-0"
-            >
-              <Zap className="w-4 h-4 fill-purple-950" />
-              <span className="hidden sm:inline">Fix My PDF</span>
-              <span className="sm:hidden">Start</span>
-            </button>
 
             {/* Mobile Hamburger */}
             <button 
