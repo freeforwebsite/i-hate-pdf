@@ -1,63 +1,96 @@
-// Cloudinary Direct Client-Side Storage Engine for I HATE PDF
+// Multi-Account Cloudinary Engine with Auto-Rotation & Load Balancing (Up to 100GB+ Pool)
 
-// Default or Environment Configuration
-export const CLOUDINARY_CONFIG = {
-  cloudName: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || localStorage.getItem('ihatepdf_cloudinary_name') || '',
-  uploadPreset: import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || localStorage.getItem('ihatepdf_cloudinary_preset') || '',
-};
+// Load accounts from LocalStorage or Environment
+function loadAccounts() {
+  try {
+    const saved = localStorage.getItem('ihatepdf_cloudinary_accounts');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
 
-// Save custom credentials if configured via UI
-export function setCloudinaryConfig(cloudName, uploadPreset) {
-  CLOUDINARY_CONFIG.cloudName = cloudName;
-  CLOUDINARY_CONFIG.uploadPreset = uploadPreset;
-  localStorage.setItem('ihatepdf_cloudinary_name', cloudName);
-  localStorage.setItem('ihatepdf_cloudinary_preset', uploadPreset);
+  // Fallback to single account config if set
+  const singleName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || localStorage.getItem('ihatepdf_cloudinary_name') || '';
+  const singlePreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || localStorage.getItem('ihatepdf_cloudinary_preset') || '';
+  
+  if (singleName && singlePreset) {
+    return [{ cloudName: singleName, uploadPreset: singlePreset }];
+  }
+
+  return [];
+}
+
+let accounts = loadAccounts();
+let currentAccountIndex = 0;
+
+// Save multi-account pool
+export function setCloudinaryAccounts(accList) {
+  const cleanList = accList.filter(a => a.cloudName && a.uploadPreset);
+  accounts = cleanList;
+  localStorage.setItem('ihatepdf_cloudinary_accounts', JSON.stringify(cleanList));
+  if (cleanList.length > 0) {
+    localStorage.setItem('ihatepdf_cloudinary_name', cleanList[0].cloudName);
+    localStorage.setItem('ihatepdf_cloudinary_preset', cleanList[0].uploadPreset);
+  }
+}
+
+export function getCloudinaryAccounts() {
+  return accounts;
 }
 
 export function isCloudinaryConfigured() {
-  return Boolean(CLOUDINARY_CONFIG.cloudName && CLOUDINARY_CONFIG.uploadPreset);
+  return accounts.length > 0;
 }
 
-// Direct Unsigned Upload to Cloudinary
+// Upload with Automatic Multi-Account Failover & Load Balancing
 export async function uploadToCloudinary(fileBlob, fileName, tags = ['ihatepdf', '7day_vault']) {
-  if (!isCloudinaryConfigured()) {
-    console.log('Cloudinary not configured yet. Falling back to local storage.');
+  if (accounts.length === 0) {
     return null;
   }
 
-  try {
-    const formData = new FormData();
-    formData.append('file', fileBlob, fileName);
-    formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
-    formData.append('tags', tags.join(','));
+  const isImage = fileBlob.type.startsWith('image/');
+  const resourceType = isImage ? 'image' : 'raw';
 
-    // Determine resource type: 'raw' for PDFs/DOCX, 'image' for images
-    const isImage = fileBlob.type.startsWith('image/');
-    const resourceType = isImage ? 'image' : 'raw';
+  // Try accounts in rotation, with fallback on error
+  let attempts = 0;
+  while (attempts < accounts.length) {
+    const activeAcc = accounts[currentAccountIndex % accounts.length];
+    currentAccountIndex = (currentAccountIndex + 1) % accounts.length;
 
-    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/${resourceType}/upload`;
+    try {
+      const formData = new FormData();
+      formData.append('file', fileBlob, fileName);
+      formData.append('upload_preset', activeAcc.uploadPreset);
+      formData.append('tags', tags.join(','));
 
-    const res = await fetch(url, {
-      method: 'POST',
-      body: formData
-    });
+      const url = `https://api.cloudinary.com/v1_1/${activeAcc.cloudName}/${resourceType}/upload`;
 
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `Cloudinary upload failed: ${res.statusText}`);
+      const res = await fetch(url, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      return {
+        publicId: data.public_id,
+        secureUrl: data.secure_url,
+        cloudName: activeAcc.cloudName,
+        format: data.format || fileName.split('.').pop(),
+        bytes: data.bytes,
+        createdAt: data.created_at || new Date().toISOString(),
+        expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000)
+      };
+    } catch (err) {
+      console.warn(`Upload failed on account "${activeAcc.cloudName}". Trying next account in pool...`, err);
+      attempts++;
     }
-
-    const data = await res.json();
-    return {
-      publicId: data.public_id,
-      secureUrl: data.secure_url,
-      format: data.format || fileName.split('.').pop(),
-      bytes: data.bytes,
-      createdAt: data.created_at || new Date().toISOString(),
-      expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days from upload
-    };
-  } catch (err) {
-    console.error('Cloudinary Upload Error:', err);
-    return null;
   }
+
+  console.error('All Cloudinary accounts failed or exceeded limits.');
+  return null;
 }
