@@ -498,44 +498,19 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                           : 'border-purple-500/30 hover:border-amber-400/60 shadow-lg hover:shadow-2xl hover:shadow-purple-900/40'
                       }`}
                     >
-                      {/* Drag Handle & Neon Index Badge */}
-                      <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5">
+                      {/* Neon Index Badge (PDF No) */}
+                      <div className="absolute top-2.5 left-2.5 z-10">
                         <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-400 to-yellow-400 text-purple-950 font-black text-xs flex items-center justify-center shadow-md">
                           {idx + 1}
                         </div>
-                        <div className="p-1 rounded-md bg-purple-950/80 border border-purple-500/30 text-purple-300 opacity-70 group-hover:opacity-100 transition-opacity" title="Drag to reorder">
-                          <GripVertical className="w-3 h-3 text-amber-300" />
-                        </div>
                       </div>
 
-                      {/* Card Floating Action Controls */}
-                      <div className="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
-                        {tool.multiple && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); moveFile(idx, -1); }}
-                              disabled={idx === 0}
-                              className="p-1.5 rounded-lg bg-purple-950/90 hover:bg-purple-900 text-purple-200 hover:text-white border border-purple-600/40 shadow-sm disabled:opacity-30 transition-all"
-                              title="Move Left"
-                            >
-                              <ChevronLeft className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); moveFile(idx, 1); }}
-                              disabled={idx === files.length - 1}
-                              className="p-1.5 rounded-lg bg-purple-950/90 hover:bg-purple-900 text-purple-200 hover:text-white border border-purple-600/40 shadow-sm disabled:opacity-30 transition-all"
-                              title="Move Right"
-                            >
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
+                      {/* Card Delete Control Only */}
+                      <div className="absolute top-2.5 right-2.5 z-10">
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
-                          className="p-1.5 rounded-lg bg-purple-950/90 hover:bg-rose-900/80 text-rose-300 hover:text-rose-100 border border-rose-500/40 shadow-sm transition-all"
+                          className="p-1.5 rounded-lg bg-purple-950/90 hover:bg-rose-900/90 text-rose-300 hover:text-rose-100 border border-rose-500/40 shadow-md transition-all hover:scale-105 active:scale-95"
                           title="Delete Document"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
