@@ -54,6 +54,8 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
   const [pdfPages, setPdfPages] = useState([]);
   const [selectedDeleteSet, setSelectedDeleteSet] = useState(new Set());
   const [selectedExtractSet, setSelectedExtractSet] = useState(new Set());
+  const [organizePages, setOrganizePages] = useState([]);
+  const [draggedOrganizeIdx, setDraggedOrganizeIdx] = useState(null);
   const [loadingPages, setLoadingPages] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
@@ -128,6 +130,15 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
       generatePdfAllPages(files[0]).then(pages => {
         if (isMounted) {
           setPdfPages(pages);
+          if (tool.id === 'reorder-pages') {
+            setOrganizePages(pages.map(p => ({
+              id: `orig-${p.pageNumber}-${Date.now()}-${Math.random()}`,
+              type: 'page',
+              originalPageNumber: p.pageNumber,
+              dataUrl: p.dataUrl,
+              rotation: 0
+            })));
+          }
           setLoadingPages(false);
         }
       }).catch(() => {
@@ -135,6 +146,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
       });
     } else {
       setPdfPages([]);
+      setOrganizePages([]);
     }
 
     return () => { isMounted = false; };
@@ -192,6 +204,87 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     newFiles.splice(index, 0, draggedItem);
     setDraggedIndex(index);
     setFiles(newFiles);
+  };
+
+  // Live Drag and Drop for Organize PDF Page Cards
+  const handleDragOverOrganizePage = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedOrganizeIdx === null || draggedOrganizeIdx === index) return;
+
+    const next = [...organizePages];
+    const [draggedItem] = next.splice(draggedOrganizeIdx, 1);
+    next.splice(index, 0, draggedItem);
+    setDraggedOrganizeIdx(index);
+    setOrganizePages(next);
+  };
+
+  // Rotate individual page in Organize PDF
+  const rotateOrganizePage = (index) => {
+    setOrganizePages(prev => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        rotation: ((next[index].rotation || 0) + 90) % 360
+      };
+      return next;
+    });
+  };
+
+  // Delete page in Organize PDF
+  const deleteOrganizePage = (index) => {
+    if (organizePages.length <= 1) {
+      setError('Cannot delete all pages. At least 1 page must remain.');
+      return;
+    }
+    setOrganizePages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Add a blank page (at start, at end, before, or after a specific page)
+  const addBlankPage = (position = 'end', targetIndex = -1) => {
+    const newBlank = {
+      id: `blank-${Date.now()}-${Math.random()}`,
+      type: 'blank',
+      originalPageNumber: null,
+      dataUrl: null,
+      rotation: 0
+    };
+    if (position === 'start') {
+      setOrganizePages(prev => [newBlank, ...prev]);
+    } else if (position === 'end') {
+      setOrganizePages(prev => [...prev, newBlank]);
+    } else if (position === 'after' && targetIndex >= 0) {
+      setOrganizePages(prev => {
+        const next = [...prev];
+        next.splice(targetIndex + 1, 0, newBlank);
+        return next;
+      });
+    } else if (position === 'before' && targetIndex >= 0) {
+      setOrganizePages(prev => {
+        const next = [...prev];
+        next.splice(targetIndex, 0, newBlank);
+        return next;
+      });
+    }
+  };
+
+  // Rotate all pages in Organize PDF
+  const rotateAllOrganizePages = () => {
+    setOrganizePages(prev => prev.map(p => ({
+      ...p,
+      rotation: ((p.rotation || 0) + 90) % 360
+    })));
+  };
+
+  // Reset Organize Pages to initial state
+  const resetOrganizePages = () => {
+    setOrganizePages(pdfPages.map(p => ({
+      id: `orig-${p.pageNumber}-${Date.now()}-${Math.random()}`,
+      type: 'page',
+      originalPageNumber: p.pageNumber,
+      dataUrl: p.dataUrl,
+      rotation: 0
+    })));
   };
 
   // Sort files A-Z or Z-A
@@ -316,6 +409,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     setFiles(prev => prev.filter((_, i) => i !== index));
     setSelectedDeleteSet(new Set());
     setSelectedExtractSet(new Set());
+    setOrganizePages([]);
     setDeletePagesStr('');
     setSplitRange('');
     setPdfPages([]);
@@ -345,6 +439,13 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
       }
     }
 
+    if (tool.id === 'reorder-pages') {
+      if (organizePages.length === 0) {
+        setError('At least 1 page is required in the organized document.');
+        return;
+      }
+    }
+
     setProcessing(true);
     setError(null);
     setProgress(20);
@@ -369,7 +470,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
           res = await splitPDF(files[0], splitRange);
           break;
         case 'reorder-pages':
-          res = await organizePDFPages(files[0], { pageOrderStr, deletePagesStr, rotationAngle: rotateAngle });
+          res = await organizePDFPages(files[0], { pageActions: organizePages });
           break;
         case 'rotate':
         case 'crop-pdf':
@@ -621,7 +722,6 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
             {/* 1. LEFT / CENTER: OBSIDIAN DOCUMENT CARDS CANVAS (8 COLUMNS) */}
             <div className="lg:col-span-8 bg-[#14032a]/90 backdrop-blur-2xl border border-purple-500/30 rounded-3xl p-6 sm:p-8 min-h-[500px] relative flex flex-col justify-between shadow-2xl shadow-purple-950/80">
               
-              {/* 1A. REMOVE PAGES CANVAS: Individual PDF Page Cards (Delete) */}
               {tool.id === 'delete-pages' && pdfPages.length > 0 ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-xs text-purple-200/80 px-1">
@@ -786,13 +886,184 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                     })}
                   </div>
                 </div>
+              ) : tool.id === 'reorder-pages' && organizePages.length > 0 ? (
+                /* 1C. ORGANIZE PDF STUDIO CANVAS: Page Reordering, Add Blank, Rotate, Delete */
+                <div className="space-y-4">
+                  {/* Top Action Ribbon */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-purple-950/70 border border-purple-800/40 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-amber-300">
+                        {organizePages.length} Pages
+                      </span>
+                      <span className="text-purple-500">|</span>
+                      <span className="text-purple-300/80 hidden sm:inline">
+                        Drag cards to reorder • Rotate & delete pages
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => addBlankPage('start')}
+                        className="px-2.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 hover:text-white font-bold text-xs flex items-center gap-1 transition-all"
+                        title="Add blank page at beginning"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-amber-400" />
+                        <span>+ Blank (Start)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => addBlankPage('end')}
+                        className="px-2.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 hover:text-white font-bold text-xs flex items-center gap-1 transition-all"
+                        title="Add blank page at end"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-amber-400" />
+                        <span>+ Blank (End)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={rotateAllOrganizePages}
+                        className="px-2.5 py-1.5 rounded-xl bg-purple-900/80 hover:bg-purple-800 border border-purple-600/40 text-purple-200 hover:text-white font-bold text-xs flex items-center gap-1 transition-all"
+                        title="Rotate all pages 90°"
+                      >
+                        <RotateCw className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Rotate All</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={resetOrganizePages}
+                        className="px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 font-bold text-xs flex items-center gap-1 transition-all"
+                        title="Reset pages to original document"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Reset</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Grid of Interactive Page Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-5">
+                    {organizePages.map((item, idx) => {
+                      const isBeingDragged = draggedOrganizeIdx === idx;
+
+                      return (
+                        <div 
+                          key={item.id}
+                          draggable={true}
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', idx.toString());
+                            e.dataTransfer.effectAllowed = 'move';
+                            setDraggedOrganizeIdx(idx);
+                          }}
+                          onDragOver={(e) => handleDragOverOrganizePage(e, idx)}
+                          onDragEnd={() => {
+                            setDraggedOrganizeIdx(null);
+                          }}
+                          className={`group relative bg-[#1b0638] rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none ${
+                            isBeingDragged 
+                              ? 'scale-105 rotate-2 opacity-70 border-amber-400 ring-4 ring-amber-400/40 shadow-2xl shadow-amber-400/50 z-30' 
+                              : 'border-purple-500/30 hover:border-amber-400/60 shadow-lg hover:shadow-2xl hover:shadow-purple-900/40 hover:-translate-y-1'
+                          }`}
+                        >
+                          {/* Top-Left Page Sequence Badge */}
+                          <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5">
+                            <div className="px-2 py-0.5 rounded-lg bg-gradient-to-tr from-amber-400 to-yellow-400 text-purple-950 font-black text-xs shadow-md">
+                              Page {idx + 1}
+                            </div>
+                            {item.type === 'blank' && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-purple-900/90 border border-purple-500/40 text-amber-300 text-[10px] font-bold">
+                                Blank
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Top-Right Control Buttons (Rotate & Delete) */}
+                          <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5">
+                            {item.type === 'page' && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); rotateOrganizePage(idx); }}
+                                className="p-1.5 rounded-lg bg-purple-950/90 hover:bg-amber-400 hover:text-purple-950 text-amber-300 border border-purple-600/40 shadow-md transition-all hover:scale-105 active:scale-95"
+                                title="Rotate page 90°"
+                              >
+                                <RotateCw className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); deleteOrganizePage(idx); }}
+                              className="p-1.5 rounded-lg bg-purple-950/90 hover:bg-rose-900/90 text-rose-300 hover:text-rose-100 border border-rose-500/40 shadow-md transition-all hover:scale-105 active:scale-95"
+                              title="Delete Page"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Page Thumbnail Canvas */}
+                          <div className="w-full h-52 sm:h-56 bg-slate-900/60 flex items-center justify-center p-3 overflow-hidden border-b border-purple-900/40 relative">
+                            {item.type === 'page' && item.dataUrl ? (
+                              <img 
+                                src={item.dataUrl} 
+                                alt={`Page ${idx + 1}`} 
+                                className="max-h-full max-w-full object-contain rounded-md shadow-md bg-white transition-transform duration-300 pointer-events-none" 
+                                style={{ transform: `rotate(${item.rotation || 0}deg)` }}
+                              />
+                            ) : (
+                              <div className="w-full h-full rounded-xl bg-white/[0.04] border-2 border-dashed border-purple-500/40 p-4 flex flex-col items-center justify-center text-center gap-2 pointer-events-none">
+                                <FileText className="w-10 h-10 text-amber-400/70" />
+                                <span className="text-xs font-bold text-purple-200 uppercase tracking-wider">Blank Page</span>
+                              </div>
+                            )}
+
+                            {/* Rotation Angle Badge */}
+                            {item.rotation && item.rotation > 0 ? (
+                              <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-purple-950/90 border border-amber-400/40 text-amber-300 text-[10px] font-black shadow-md">
+                                ⟳ {item.rotation}°
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {/* Card Footer: Add Blank Page Before / After */}
+                          <div className="p-2 bg-[#170533] flex items-center justify-between text-[11px] text-purple-300/80">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); addBlankPage('before', idx); }}
+                              className="px-2 py-1 rounded-lg hover:bg-white/[0.08] text-purple-300 hover:text-amber-300 font-semibold transition-colors flex items-center gap-1"
+                              title="Add blank page before this page"
+                            >
+                              <Plus className="w-3 h-3 text-amber-400" />
+                              <span>Before</span>
+                            </button>
+
+                            <span className="text-purple-600">|</span>
+
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); addBlankPage('after', idx); }}
+                              className="px-2 py-1 rounded-lg hover:bg-white/[0.08] text-purple-300 hover:text-amber-300 font-semibold transition-colors flex items-center gap-1"
+                              title="Add blank page after this page"
+                            >
+                              <Plus className="w-3 h-3 text-amber-400" />
+                              <span>After</span>
+                            </button>
+                          </div>
+
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               ) : loadingPages ? (
                 <div className="min-h-[300px] flex flex-col items-center justify-center gap-3 text-purple-300">
                   <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
                   <span className="text-sm font-semibold">Extracting page thumbnails...</span>
                 </div>
               ) : (
-                /* 1C. STANDARD DOCUMENT CARDS CANVAS (e.g. Merge PDF / Single File) */
+                /* 1D. STANDARD DOCUMENT CARDS CANVAS (e.g. Merge PDF / Single File) */
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-5">
                   {files.map((file, idx) => {
                     const thumbKey = `${file.name}_${file.size}_${file.lastModified}`;
@@ -1067,30 +1338,76 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                 )}
 
                 {tool.id === 'reorder-pages' && (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-bold text-purple-200 mb-1">
-                        New Page Order Sequence:
-                      </label>
-                      <input 
-                        type="text"
-                        value={pageOrderStr}
-                        onChange={(e) => setPageOrderStr(e.target.value)}
-                        placeholder="e.g. 2, 1, 4, 3, 5"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.06] border border-purple-600/40 text-white text-xs font-medium focus:outline-none focus:border-amber-400"
-                      />
+                  <div className="space-y-4">
+                    {/* Real-time Summary Card */}
+                    <div className="p-3.5 rounded-2xl bg-purple-950/60 border border-purple-800/40 space-y-2">
+                      <div className="text-xs font-bold text-amber-300 mb-1">
+                        Layout Statistics:
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-white/[0.04]">
+                          <span className="text-purple-300">Total Pages:</span>
+                          <span className="font-bold text-white">{organizePages.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-white/[0.04]">
+                          <span className="text-purple-300">Blank Pages:</span>
+                          <span className="font-bold text-amber-300">{organizePages.filter(p => p.type === 'blank').length}</span>
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-white/[0.04] col-span-2">
+                          <span className="text-purple-300">Rotated Pages:</span>
+                          <span className="font-bold text-purple-200">{organizePages.filter(p => p.rotation && p.rotation > 0).length}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-purple-200 mb-1">
-                        Pages to Delete (Optional):
+
+                    {/* Quick Add Blank Section */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-purple-200">
+                        Add Blank Page:
                       </label>
-                      <input 
-                        type="text"
-                        value={deletePagesStr}
-                        onChange={(e) => setDeletePagesStr(e.target.value)}
-                        placeholder="e.g. 2, 4-6"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.06] border border-purple-600/40 text-white text-xs font-medium focus:outline-none focus:border-amber-400"
-                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => addBlankPage('start')}
+                          className="py-2.5 px-3 rounded-xl text-xs font-bold bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 hover:text-white transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-amber-400" />
+                          <span>At Start</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addBlankPage('end')}
+                          className="py-2.5 px-3 rounded-xl text-xs font-bold bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 hover:text-white transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-amber-400" />
+                          <span>At End</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Batch Actions */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-purple-200">
+                        Batch Page Controls:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={rotateAllOrganizePages}
+                          className="py-2.5 px-2 rounded-xl text-xs font-bold bg-purple-900/80 hover:bg-purple-800 border border-purple-600/40 text-purple-200 hover:text-white transition-all flex items-center justify-center gap-1"
+                        >
+                          <RotateCw className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Rotate 90°</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={resetOrganizePages}
+                          className="py-2.5 px-2 rounded-xl text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 transition-all flex items-center justify-center gap-1"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Reset All</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

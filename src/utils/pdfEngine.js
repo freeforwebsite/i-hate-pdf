@@ -518,41 +518,57 @@ export const exportDataFormat = async (file, ext = 'xlsx', mime = 'application/o
 };
 
 // ============================================================
-// 16. ORGANIZE PDF (Reorder, Delete, Rotate, and Rearrange)
+// 16. ORGANIZE PDF (Reorder, Delete, Rotate, Blank Pages, and Rearrange)
 // ============================================================
-export const organizePDFPages = async (file, { pageOrderStr = '', deletePagesStr = '', rotationAngle = 0 } = {}) => {
+export const organizePDFPages = async (file, { pageActions = null, pageOrderStr = '', deletePagesStr = '', rotationAngle = 0 } = {}) => {
   const arrayBuffer = await readFileAsArrayBuffer(file);
   const pdfDoc = await PDFDocument.load(arrayBuffer);
   const totalPages = pdfDoc.getPageCount();
 
-  // 1. Determine Delete list
-  const deleteList = deletePagesStr?.trim() ? parsePageRange(deletePagesStr, totalPages) : [];
-
-  // 2. Determine Page order
-  let orderIndices = [];
-  if (pageOrderStr?.trim()) {
-    orderIndices = parsePageRange(pageOrderStr, totalPages).map(n => n - 1);
-  } else {
-    orderIndices = Array.from({ length: totalPages }, (_, i) => i);
-  }
-
-  // Filter out deleted pages
-  const finalIndices = orderIndices.filter(idx => !deleteList.includes(idx + 1) && idx >= 0 && idx < totalPages);
-
-  if (finalIndices.length === 0) {
-    throw new Error('Cannot delete or exclude all pages of the document.');
-  }
-
   const organizedPdf = await PDFDocument.create();
-  const copiedPages = await organizedPdf.copyPages(pdfDoc, finalIndices);
 
-  copiedPages.forEach(page => {
-    if (rotationAngle && rotationAngle !== 0) {
-      const cur = page.getRotation().angle;
-      page.setRotation(degrees((cur + rotationAngle) % 360));
+  // If visual interactive pageActions array is provided
+  if (pageActions && Array.isArray(pageActions) && pageActions.length > 0) {
+    for (const item of pageActions) {
+      if (item.type === 'blank') {
+        // Insert standard A4 blank page
+        organizedPdf.addPage([595.28, 841.89]);
+      } else {
+        const origIdx = item.originalPageNumber - 1;
+        if (origIdx >= 0 && origIdx < totalPages) {
+          const [copiedPage] = await organizedPdf.copyPages(pdfDoc, [origIdx]);
+          if (item.rotation && item.rotation !== 0) {
+            const curRot = copiedPage.getRotation().angle;
+            copiedPage.setRotation(degrees((curRot + item.rotation) % 360));
+          }
+          organizedPdf.addPage(copiedPage);
+        }
+      }
     }
-    organizedPdf.addPage(page);
-  });
+  } else {
+    // Legacy fallback via text sequence string
+    const deleteList = deletePagesStr?.trim() ? parsePageRange(deletePagesStr, totalPages) : [];
+    let orderIndices = [];
+    if (pageOrderStr?.trim()) {
+      orderIndices = parsePageRange(pageOrderStr, totalPages).map(n => n - 1);
+    } else {
+      orderIndices = Array.from({ length: totalPages }, (_, i) => i);
+    }
+
+    const finalIndices = orderIndices.filter(idx => !deleteList.includes(idx + 1) && idx >= 0 && idx < totalPages);
+    if (finalIndices.length === 0) {
+      throw new Error('Cannot delete or exclude all pages of the document.');
+    }
+
+    const copiedPages = await organizedPdf.copyPages(pdfDoc, finalIndices);
+    copiedPages.forEach(page => {
+      if (rotationAngle && rotationAngle !== 0) {
+        const cur = page.getRotation().angle;
+        page.setRotation(degrees((cur + rotationAngle) % 360));
+      }
+      organizedPdf.addPage(page);
+    });
+  }
 
   const finalBytes = await organizedPdf.save();
   return {
