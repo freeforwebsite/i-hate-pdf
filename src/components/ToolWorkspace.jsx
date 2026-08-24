@@ -68,6 +68,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
   
   // Custom tool options state
   const [splitRange, setSplitRange] = useState('');
+  const [extractMode, setExtractMode] = useState('single'); // 'single' (1 combined PDF) or 'separate' (ZIP)
   const [pageOrderStr, setPageOrderStr] = useState('');
   const [rotateAngle, setRotateAngle] = useState(0);
   const [deletePagesStr, setDeletePagesStr] = useState('');
@@ -467,7 +468,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
         case 'split':
         case 'extract-pages':
         case 'pdf-to-jpg':
-          res = await splitPDF(files[0], splitRange);
+          res = await splitPDF(files[0], splitRange, extractMode);
           break;
         case 'reorder-pages':
           res = await organizePDFPages(files[0], { pageActions: organizePages });
@@ -1269,7 +1270,59 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                 )}
 
                 {['split', 'extract-pages'].includes(tool.id) && (
-                  <div className="space-y-3.5">
+                  <div className="space-y-4">
+                    {/* Extraction Mode Selector */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-purple-200">
+                        Export Format:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setExtractMode('single')}
+                          className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between gap-1.5 ${
+                            extractMode === 'single'
+                              ? 'bg-amber-400/20 border-amber-400 text-amber-300 ring-1 ring-amber-400/60 shadow-lg'
+                              : 'bg-white/[0.04] border-purple-600/40 text-purple-200 hover:bg-white/[0.08]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black">1 PDF Document</span>
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                              extractMode === 'single' ? 'border-amber-400 bg-amber-400 text-purple-950' : 'border-purple-500'
+                            }`}>
+                              {extractMode === 'single' && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-purple-300/80 leading-tight">
+                            Merge all pages into 1 file
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setExtractMode('separate')}
+                          className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between gap-1.5 ${
+                            extractMode === 'separate'
+                              ? 'bg-amber-400/20 border-amber-400 text-amber-300 ring-1 ring-amber-400/60 shadow-lg'
+                              : 'bg-white/[0.04] border-purple-600/40 text-purple-200 hover:bg-white/[0.08]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black">Separate (.ZIP)</span>
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                              extractMode === 'separate' ? 'border-amber-400 bg-amber-400 text-purple-950' : 'border-purple-500'
+                            }`}>
+                              {extractMode === 'separate' && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-purple-300/80 leading-tight">
+                            Each page as separate PDF
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="block text-xs font-bold text-purple-200">

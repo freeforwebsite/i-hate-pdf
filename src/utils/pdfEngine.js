@@ -82,49 +82,52 @@ export const mergePDFs = async (files) => {
 // ============================================================
 // 2. SPLIT / EXTRACT PDF PAGES
 // ============================================================
-export const splitPDF = async (file, pageRange = '') => {
+export const splitPDF = async (file, pageRange = '', extractMode = 'single') => {
   const arrayBuffer = await readFileAsArrayBuffer(file);
   const pdfDoc = await PDFDocument.load(arrayBuffer);
   const totalPages = pdfDoc.getPageCount();
+  const baseName = file.name.replace(/\.[^/.]+$/, '');
 
-  if (pageRange.trim()) {
-    const newPdf = await PDFDocument.create();
-    const pageNumbers = parsePageRange(pageRange, totalPages);
-    
+  let pageNumbers = [];
+  if (pageRange && pageRange.trim()) {
+    pageNumbers = parsePageRange(pageRange, totalPages);
     if (pageNumbers.length === 0) {
       throw new Error(`Invalid page range. Document only has ${totalPages} pages.`);
     }
+  } else {
+    pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
 
-    const copiedPages = await newPdf.copyPages(pdfDoc, pageNumbers.map(n => n - 1));
-    copiedPages.forEach((page) => newPdf.addPage(page));
-
-    const pdfBytes = await newPdf.save();
+  // 1. If Separate mode: extract each selected page as individual PDF and bundle into ZIP
+  if (extractMode === 'separate' || extractMode === 'zip') {
+    const zip = new JSZip();
+    for (const pageNum of pageNumbers) {
+      const singlePdf = await PDFDocument.create();
+      const [copiedPage] = await singlePdf.copyPages(pdfDoc, [pageNum - 1]);
+      singlePdf.addPage(copiedPage);
+      const singleBytes = await singlePdf.save();
+      zip.file(`${baseName}_page_${pageNum}.pdf`, singleBytes);
+    }
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
     return {
-      type: 'pdf',
-      bytes: pdfBytes,
-      filename: `extracted_pages_${file.name.replace(/\.[^/.]+$/, '')}.pdf`,
-      size: pdfBytes.length
+      type: 'zip',
+      blob: zipBlob,
+      filename: `${baseName}_separated_pages.zip`,
+      size: zipBlob.size
     };
   }
 
-  // Split all pages into ZIP
-  const zip = new JSZip();
-  const baseName = file.name.replace(/\.[^/.]+$/, '');
+  // 2. Default: Merge all selected pages into a single combined PDF
+  const newPdf = await PDFDocument.create();
+  const copiedPages = await newPdf.copyPages(pdfDoc, pageNumbers.map(n => n - 1));
+  copiedPages.forEach((page) => newPdf.addPage(page));
 
-  for (let i = 0; i < totalPages; i++) {
-    const singlePdf = await PDFDocument.create();
-    const [copiedPage] = await singlePdf.copyPages(pdfDoc, [i]);
-    singlePdf.addPage(copiedPage);
-    const singleBytes = await singlePdf.save();
-    zip.file(`${baseName}_page_${i + 1}.pdf`, singleBytes);
-  }
-
-  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const pdfBytes = await newPdf.save();
   return {
-    type: 'zip',
-    blob: zipBlob,
-    filename: `${baseName}_all_pages.zip`,
-    size: zipBlob.size
+    type: 'pdf',
+    bytes: pdfBytes,
+    filename: `extracted_pages_${baseName}.pdf`,
+    size: pdfBytes.length
   };
 };
 
