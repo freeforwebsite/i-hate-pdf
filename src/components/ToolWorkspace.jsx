@@ -53,6 +53,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
   const [thumbnails, setThumbnails] = useState({});
   const [pdfPages, setPdfPages] = useState([]);
   const [selectedDeleteSet, setSelectedDeleteSet] = useState(new Set());
+  const [selectedExtractSet, setSelectedExtractSet] = useState(new Set());
   const [loadingPages, setLoadingPages] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
@@ -85,6 +86,25 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
+  // Helper to format array of numbers as continuous ranges e.g. "1-3, 5, 8-10"
+  const formatRanges = (numbers) => {
+    if (!numbers || numbers.length === 0) return '';
+    const ranges = [];
+    let start = numbers[0];
+    let end = numbers[0];
+    for (let i = 1; i < numbers.length; i++) {
+      if (numbers[i] === end + 1) {
+        end = numbers[i];
+      } else {
+        ranges.push(start === end ? `${start}` : `${start}-${end}`);
+        start = numbers[i];
+        end = numbers[i];
+      }
+    }
+    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+    return ranges.join(', ');
+  };
+
   const isPageTool = ['delete-pages', 'split', 'extract-pages', 'reorder-pages'].includes(tool.id);
 
   // Generate real PDF first-page thumbnails
@@ -102,7 +122,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
       }
     });
 
-    // If single PDF on page tool (like Remove pages, Split, Reorder), extract all page thumbnails
+    // If single PDF on page tool (like Remove pages, Split, Extract, Reorder), extract all page thumbnails
     if (isPageTool && files.length === 1 && (files[0].name.endsWith('.pdf') || files[0].type === 'application/pdf')) {
       setLoadingPages(true);
       generatePdfAllPages(files[0]).then(pages => {
@@ -196,7 +216,20 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     setDeletePagesStr(sorted.join(', '));
   };
 
-  // Sync manual input in sidebar to page cards
+  // Toggle a page for extraction in Extract Pages / Split tool
+  const toggleExtractPage = (pageNum) => {
+    const next = new Set(selectedExtractSet);
+    if (next.has(pageNum)) {
+      next.delete(pageNum);
+    } else {
+      next.add(pageNum);
+    }
+    setSelectedExtractSet(next);
+    const sorted = Array.from(next).sort((a, b) => a - b);
+    setSplitRange(formatRanges(sorted));
+  };
+
+  // Sync manual input in sidebar to page cards (Remove Pages)
   const handleManualDeleteInputChange = (val) => {
     setDeletePagesStr(val);
     const parts = val.split(',').map(s => s.trim()).filter(Boolean);
@@ -213,6 +246,25 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
       }
     }
     setSelectedDeleteSet(set);
+  };
+
+  // Sync manual input in sidebar to page cards (Extract Pages / Split)
+  const handleManualExtractInputChange = (val) => {
+    setSplitRange(val);
+    const parts = val.split(',').map(s => s.trim()).filter(Boolean);
+    const set = new Set();
+    for (const p of parts) {
+      if (p.includes('-')) {
+        const [start, end] = p.split('-').map(Number);
+        if (!isNaN(start) && !isNaN(end)) {
+          for (let i = start; i <= end; i++) set.add(i);
+        }
+      } else {
+        const n = Number(p);
+        if (!isNaN(n)) set.add(n);
+      }
+    }
+    setSelectedExtractSet(set);
   };
 
   const selectEvenPages = () => {
@@ -234,10 +286,38 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     setDeletePagesStr('');
   };
 
+  // Quick select functions for Extract Pages
+  const selectAllExtractPages = () => {
+    const set = new Set(pdfPages.map(p => p.pageNumber));
+    setSelectedExtractSet(set);
+    setSplitRange(formatRanges(Array.from(set).sort((a, b) => a - b)));
+  };
+
+  const selectOddExtractPages = () => {
+    const set = new Set();
+    pdfPages.forEach(p => { if (p.pageNumber % 2 !== 0) set.add(p.pageNumber); });
+    setSelectedExtractSet(set);
+    setSplitRange(formatRanges(Array.from(set).sort((a, b) => a - b)));
+  };
+
+  const selectEvenExtractPages = () => {
+    const set = new Set();
+    pdfPages.forEach(p => { if (p.pageNumber % 2 === 0) set.add(p.pageNumber); });
+    setSelectedExtractSet(set);
+    setSplitRange(formatRanges(Array.from(set).sort((a, b) => a - b)));
+  };
+
+  const clearExtractSelection = () => {
+    setSelectedExtractSet(new Set());
+    setSplitRange('');
+  };
+
   const removeFile = (index) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
     setSelectedDeleteSet(new Set());
+    setSelectedExtractSet(new Set());
     setDeletePagesStr('');
+    setSplitRange('');
     setPdfPages([]);
     if (files.length <= 1) {
       setResult(null);
@@ -254,6 +334,13 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     if (tool.id === 'delete-pages') {
       if (!deletePagesStr || !deletePagesStr.trim()) {
         setError('Please click on at least 1 page or enter page numbers to remove.');
+        return;
+      }
+    }
+
+    if (['split', 'extract-pages'].includes(tool.id)) {
+      if (!splitRange || !splitRange.trim()) {
+        setError('Please click on at least 1 page or enter page range to extract.');
         return;
       }
     }
@@ -534,7 +621,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
             {/* 1. LEFT / CENTER: OBSIDIAN DOCUMENT CARDS CANVAS (8 COLUMNS) */}
             <div className="lg:col-span-8 bg-[#14032a]/90 backdrop-blur-2xl border border-purple-500/30 rounded-3xl p-6 sm:p-8 min-h-[500px] relative flex flex-col justify-between shadow-2xl shadow-purple-950/80">
               
-              {/* 1A. REMOVE PAGES CANVAS: Individual PDF Page Cards */}
+              {/* 1A. REMOVE PAGES CANVAS: Individual PDF Page Cards (Delete) */}
               {tool.id === 'delete-pages' && pdfPages.length > 0 ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-xs text-purple-200/80 px-1">
@@ -619,13 +706,93 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                     })}
                   </div>
                 </div>
+              ) : ['split', 'extract-pages'].includes(tool.id) && pdfPages.length > 0 ? (
+                /* 1B. EXTRACT PAGES / SPLIT CANVAS: Individual PDF Page Cards (Extract) */
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-xs text-purple-200/80 px-1">
+                    <span>Click on pages to select them for extraction:</span>
+                    <span className="font-bold text-amber-300">
+                      Total {pdfPages.length} Pages
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-5">
+                    {pdfPages.map((page) => {
+                      const isSelected = selectedExtractSet.has(page.pageNumber);
+
+                      return (
+                        <div 
+                          key={page.pageNumber}
+                          onClick={() => toggleExtractPage(page.pageNumber)}
+                          className={`group relative rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col cursor-pointer select-none ${
+                            isSelected 
+                              ? 'bg-amber-950/40 border-amber-400 ring-2 ring-amber-400/80 shadow-2xl shadow-amber-400/30 scale-100' 
+                              : 'bg-[#1b0638] border-purple-500/30 hover:border-amber-400/60 shadow-lg hover:shadow-2xl hover:shadow-purple-900/40 hover:-translate-y-1 opacity-70 hover:opacity-100'
+                          }`}
+                        >
+                          {/* Page Number Badge */}
+                          <div className="absolute top-2.5 left-2.5 z-10">
+                            <div className={`px-2 py-0.5 rounded-lg text-xs font-black shadow-md ${
+                              isSelected 
+                                ? 'bg-gradient-to-tr from-amber-400 to-yellow-400 text-purple-950' 
+                                : 'bg-purple-900/90 text-purple-200 border border-purple-600/40'
+                            }`}>
+                              Page {page.pageNumber}
+                            </div>
+                          </div>
+
+                          {/* Extract Selection Checkbox Toggle Button */}
+                          <div className="absolute top-2.5 right-2.5 z-10">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); toggleExtractPage(page.pageNumber); }}
+                              className={`w-7 h-7 rounded-lg shadow-md transition-all flex items-center justify-center ${
+                                isSelected 
+                                  ? 'bg-amber-400 text-purple-950 font-black ring-2 ring-amber-300' 
+                                  : 'bg-purple-950/90 text-purple-400 hover:text-amber-300 hover:bg-purple-900/80 border border-purple-600/40'
+                              }`}
+                              title={isSelected ? 'Deselect Page' : 'Select Page for Extraction'}
+                            >
+                              <Check className={`w-4 h-4 stroke-[3] ${isSelected ? 'text-purple-950' : 'text-purple-400'}`} />
+                            </button>
+                          </div>
+
+                          {/* Page Preview Canvas */}
+                          <div className="w-full h-52 sm:h-56 bg-slate-900/60 flex items-center justify-center p-3 overflow-hidden border-b border-purple-900/40 relative">
+                            <img 
+                              src={page.dataUrl} 
+                              alt={`Page ${page.pageNumber}`} 
+                              className={`max-h-full max-w-full object-contain rounded-md shadow-md bg-white transition-opacity ${
+                                isSelected ? 'opacity-100' : 'opacity-60'
+                              }`} 
+                            />
+                            {/* Selected For Extraction Overlay Badge */}
+                            {isSelected && (
+                              <div className="absolute top-3 right-11 px-2.5 py-0.5 rounded-full bg-amber-400/90 text-purple-950 text-[10px] font-black tracking-wide shadow-md uppercase">
+                                Selected
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Page Status Footer */}
+                          <div className={`p-2.5 text-center text-xs font-bold transition-colors ${
+                            isSelected ? 'bg-amber-400/20 text-amber-300 border-t border-amber-400/30' : 'bg-[#170533] text-purple-300/70'
+                          }`}>
+                            {isSelected ? '✔ Ready to Extract' : 'Click to select'}
+                          </div>
+
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               ) : loadingPages ? (
                 <div className="min-h-[300px] flex flex-col items-center justify-center gap-3 text-purple-300">
                   <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
                   <span className="text-sm font-semibold">Extracting page thumbnails...</span>
                 </div>
               ) : (
-                /* 1B. STANDARD DOCUMENT CARDS CANVAS (e.g. Merge PDF / Single File) */
+                /* 1C. STANDARD DOCUMENT CARDS CANVAS (e.g. Merge PDF / Single File) */
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-5">
                   {files.map((file, idx) => {
                     const thumbKey = `${file.name}_${file.size}_${file.lastModified}`;
@@ -831,17 +998,71 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                 )}
 
                 {['split', 'extract-pages'].includes(tool.id) && (
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-purple-200">
-                      Page Range to Extract:
-                    </label>
-                    <input 
-                      type="text"
-                      value={splitRange}
-                      onChange={(e) => setSplitRange(e.target.value)}
-                      placeholder="e.g. 1-3, 5, 8-10"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.06] border border-purple-600/40 text-white text-xs font-medium focus:outline-none focus:border-amber-400"
-                    />
+                  <div className="space-y-3.5">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-purple-200">
+                          Page Range to Extract:
+                        </label>
+                        {selectedExtractSet.size > 0 && (
+                          <span className="text-[11px] font-black text-amber-300 bg-amber-400/20 border border-amber-400/30 px-2 py-0.5 rounded-full">
+                            {selectedExtractSet.size} selected
+                          </span>
+                        )}
+                      </div>
+                      <input 
+                        type="text"
+                        value={splitRange}
+                        onChange={(e) => handleManualExtractInputChange(e.target.value)}
+                        placeholder="Click pages or type e.g. 1-3, 5, 8-10"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.06] border border-purple-600/40 text-white text-xs font-medium focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-purple-300/80 mb-1.5">
+                        Quick Selection:
+                      </label>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={selectAllExtractPages}
+                          className="py-2 px-1 rounded-xl text-xs font-bold bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 transition-all text-center"
+                        >
+                          All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={selectOddExtractPages}
+                          className="py-2 px-1 rounded-xl text-xs font-bold bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 transition-all text-center"
+                        >
+                          Odd
+                        </button>
+                        <button
+                          type="button"
+                          onClick={selectEvenExtractPages}
+                          className="py-2 px-1 rounded-xl text-xs font-bold bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 transition-all text-center"
+                        >
+                          Even
+                        </button>
+                        <button
+                          type="button"
+                          onClick={clearExtractSelection}
+                          className="py-2 px-1 rounded-xl text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 transition-all text-center"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    {pdfPages.length > 0 && (
+                      <div className="p-3 rounded-2xl bg-purple-950/60 border border-purple-800/40 text-xs text-purple-300 flex items-center justify-between">
+                        <span>Selected to Extract:</span>
+                        <span className="font-bold text-amber-300 text-sm">
+                          {selectedExtractSet.size} / {pdfPages.length} pages
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 
