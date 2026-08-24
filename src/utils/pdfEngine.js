@@ -134,23 +134,36 @@ export const splitPDF = async (file, pageRange = '', extractMode = 'single') => 
 // ============================================================
 // 3. ROTATE PDF PAGES
 // ============================================================
-export const rotatePDF = async (file, rotationAngle = 90, selectedPages = 'all') => {
+export const rotatePDF = async (file, rotationAngle = 90, selectedPages = 'all', perPageRotations = null) => {
   const arrayBuffer = await readFileAsArrayBuffer(file);
   const pdfDoc = await PDFDocument.load(arrayBuffer);
   const pages = pdfDoc.getPages();
   const totalPages = pages.length;
 
-  const targetIndices = selectedPages === 'all' 
-    ? Array.from({ length: totalPages }, (_, i) => i)
-    : parsePageRange(selectedPages, totalPages).map(n => n - 1);
+  if (perPageRotations && Array.isArray(perPageRotations) && perPageRotations.length > 0) {
+    perPageRotations.forEach((item, idx) => {
+      if (idx < totalPages) {
+        const page = pages[idx];
+        const curRot = page.getRotation().angle;
+        const addRot = item.rotation !== undefined ? item.rotation : (rotationAngle || 0);
+        if (addRot !== 0) {
+          page.setRotation(degrees((curRot + addRot) % 360));
+        }
+      }
+    });
+  } else {
+    const targetIndices = selectedPages === 'all' 
+      ? Array.from({ length: totalPages }, (_, i) => i)
+      : parsePageRange(selectedPages, totalPages).map(n => n - 1);
 
-  targetIndices.forEach(idx => {
-    if (idx >= 0 && idx < totalPages) {
-      const page = pages[idx];
-      const currentRotation = page.getRotation().angle;
-      page.setRotation(degrees((currentRotation + rotationAngle) % 360));
-    }
-  });
+    targetIndices.forEach(idx => {
+      if (idx >= 0 && idx < totalPages) {
+        const page = pages[idx];
+        const currentRotation = page.getRotation().angle;
+        page.setRotation(degrees((currentRotation + rotationAngle) % 360));
+      }
+    });
+  }
 
   const rotatedBytes = await pdfDoc.save();
   return {

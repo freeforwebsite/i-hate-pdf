@@ -55,6 +55,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
   const [selectedDeleteSet, setSelectedDeleteSet] = useState(new Set());
   const [selectedExtractSet, setSelectedExtractSet] = useState(new Set());
   const [organizePages, setOrganizePages] = useState([]);
+  const [scanPages, setScanPages] = useState([]);
   const [draggedOrganizeIdx, setDraggedOrganizeIdx] = useState(null);
   const [loadingPages, setLoadingPages] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -108,7 +109,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     return ranges.join(', ');
   };
 
-  const isPageTool = ['delete-pages', 'split', 'extract-pages', 'reorder-pages'].includes(tool.id);
+  const isPageTool = ['delete-pages', 'split', 'extract-pages', 'reorder-pages', 'scan-to-pdf', 'rotate', 'crop-pdf'].includes(tool.id);
 
   // Generate real PDF first-page thumbnails
   useEffect(() => {
@@ -125,7 +126,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
       }
     });
 
-    // If single PDF on page tool (like Remove pages, Split, Extract, Reorder), extract all page thumbnails
+    // If single PDF on page tool (like Remove pages, Split, Extract, Reorder, Scan, Rotate), extract all page thumbnails
     if (isPageTool && files.length === 1 && (files[0].name.endsWith('.pdf') || files[0].type === 'application/pdf')) {
       setLoadingPages(true);
       generatePdfAllPages(files[0]).then(pages => {
@@ -140,6 +141,13 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
               rotation: 0
             })));
           }
+          if (['scan-to-pdf', 'rotate', 'crop-pdf'].includes(tool.id)) {
+            setScanPages(pages.map(p => ({
+              pageNumber: p.pageNumber,
+              dataUrl: p.dataUrl,
+              rotation: 0
+            })));
+          }
           setLoadingPages(false);
         }
       }).catch(() => {
@@ -148,6 +156,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     } else {
       setPdfPages([]);
       setOrganizePages([]);
+      setScanPages([]);
     }
 
     return () => { isMounted = false; };
@@ -288,6 +297,53 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     })));
   };
 
+  // Rotate individual page in Scan to PDF / Rotate PDF
+  const rotateScanPage = (idx) => {
+    setScanPages(prev => prev.map((p, i) => {
+      if (i === idx) {
+        return { ...p, rotation: ((p.rotation || 0) + 90) % 360 };
+      }
+      return p;
+    }));
+  };
+
+  // Set specific rotation on individual page
+  const setPageSpecificRotation = (idx, angle) => {
+    setScanPages(prev => prev.map((p, i) => {
+      if (i === idx) {
+        return { ...p, rotation: angle % 360 };
+      }
+      return p;
+    }));
+  };
+
+  // Rotate all pages by 90 degrees
+  const rotateAllScanPages = (angleStep = 90) => {
+    setScanPages(prev => prev.map(p => ({
+      ...p,
+      rotation: ((p.rotation || 0) + angleStep) % 360
+    })));
+  };
+
+  // Set all pages to specific global degree (0, 90, 180, 270)
+  const setAllPagesToAngle = (angle) => {
+    setRotateAngle(angle);
+    setScanPages(prev => prev.map(p => ({
+      ...p,
+      rotation: angle
+    })));
+  };
+
+  // Reset scan / rotate pages
+  const resetScanPages = () => {
+    setRotateAngle(0);
+    setScanPages(pdfPages.map(p => ({
+      pageNumber: p.pageNumber,
+      dataUrl: p.dataUrl,
+      rotation: 0
+    })));
+  };
+
   // Sort files A-Z or Z-A
   const toggleSort = () => {
     const sorted = [...files].sort((a, b) => {
@@ -411,6 +467,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     setSelectedDeleteSet(new Set());
     setSelectedExtractSet(new Set());
     setOrganizePages([]);
+    setScanPages([]);
     setDeletePagesStr('');
     setSplitRange('');
     setPdfPages([]);
@@ -477,7 +534,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
         case 'crop-pdf':
         case 'scan-to-pdf':
         case 'edit-pdf':
-          res = await rotatePDF(files[0], rotateAngle || 90);
+          res = await rotatePDF(files[0], rotateAngle || 90, 'all', scanPages);
           break;
         case 'delete-pages':
           res = await deletePagesPDF(files[0], deletePagesStr);
@@ -1058,6 +1115,134 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                     })}
                   </div>
                 </div>
+              ) : ['scan-to-pdf', 'rotate', 'crop-pdf'].includes(tool.id) && scanPages.length > 0 ? (
+                /* 1D. SCAN TO PDF & ROTATE PDF CANVAS: All Page Thumbnails & Degree Controls */
+                <div className="space-y-4">
+                  {/* Top Action Ribbon */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-purple-950/70 border border-purple-800/40 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-amber-300">
+                        {scanPages.length} Pages
+                      </span>
+                      <span className="text-purple-500">|</span>
+                      <span className="text-purple-300/80 hidden sm:inline">
+                        Rotate all pages or customize individual angles
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => rotateAllScanPages(90)}
+                        className="px-2.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 hover:text-white font-bold text-xs flex items-center gap-1 transition-all"
+                        title="Rotate all pages clockwise by 90°"
+                      >
+                        <RotateCw className="w-3.5 h-3.5 text-amber-400" />
+                        <span>+90° CW</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAllPagesToAngle(180)}
+                        className="px-2.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 hover:text-white font-bold text-xs flex items-center gap-1 transition-all"
+                        title="Flip all pages 180°"
+                      >
+                        <RotateCw className="w-3.5 h-3.5 text-amber-400" />
+                        <span>180° Flip</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAllPagesToAngle(270)}
+                        className="px-2.5 py-1.5 rounded-xl bg-purple-900/80 hover:bg-purple-800 border border-purple-600/40 text-purple-200 hover:text-white font-bold text-xs flex items-center gap-1 transition-all"
+                        title="Rotate 270° Counter-Clockwise"
+                      >
+                        <RotateCw className="w-3.5 h-3.5 text-amber-400" />
+                        <span>270° CCW</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={resetScanPages}
+                        className="px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 font-bold text-xs flex items-center gap-1 transition-all"
+                        title="Reset all rotations to 0°"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>0° Reset</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Grid of Scan / Rotate Page Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-5">
+                    {scanPages.map((page, idx) => (
+                      <div 
+                        key={page.pageNumber}
+                        className="group relative bg-[#1b0638] rounded-2xl border border-purple-500/30 hover:border-amber-400/60 shadow-lg hover:shadow-2xl hover:shadow-purple-900/40 hover:-translate-y-1 transition-all duration-200 overflow-hidden flex flex-col select-none"
+                      >
+                        {/* Top-Left Page Sequence Badge */}
+                        <div className="absolute top-2.5 left-2.5 z-10">
+                          <div className="px-2 py-0.5 rounded-lg bg-gradient-to-tr from-amber-400 to-yellow-400 text-purple-950 font-black text-xs shadow-md">
+                            Page {page.pageNumber}
+                          </div>
+                        </div>
+
+                        {/* Top-Right Quick Rotate 90° Button */}
+                        <div className="absolute top-2.5 right-2.5 z-10">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); rotateScanPage(idx); }}
+                            className="p-1.5 rounded-lg bg-purple-950/90 hover:bg-amber-400 hover:text-purple-950 text-amber-300 border border-purple-600/40 shadow-md transition-all hover:scale-105 active:scale-95"
+                            title="Rotate this page +90°"
+                          >
+                            <RotateCw className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Page Preview Canvas with Live CSS Rotation */}
+                        <div className="w-full h-52 sm:h-56 bg-slate-900/60 flex items-center justify-center p-3 overflow-hidden border-b border-purple-900/40 relative">
+                          <img 
+                            src={page.dataUrl} 
+                            alt={`Page ${page.pageNumber}`} 
+                            className="max-h-full max-w-full object-contain rounded-md shadow-md bg-white transition-transform duration-300 pointer-events-none" 
+                            style={{ transform: `rotate(${page.rotation || 0}deg)` }}
+                          />
+
+                          {/* Degree Badge Overlay */}
+                          {page.rotation && page.rotation > 0 ? (
+                            <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-purple-950/90 border border-amber-400/40 text-amber-300 text-[10px] font-black shadow-md">
+                              ⟳ {page.rotation}°
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {/* Card Footer: Degree Quick Selector (0°, 90°, 180°, 270°) */}
+                        <div className="p-2 bg-[#170533] grid grid-cols-4 gap-1 text-[10px] font-bold text-center">
+                          {[
+                            { deg: 0, label: '0°' },
+                            { deg: 90, label: '90°' },
+                            { deg: 180, label: '180°' },
+                            { deg: 270, label: '270°' }
+                          ].map(d => (
+                            <button
+                              key={d.deg}
+                              type="button"
+                              onClick={() => setPageSpecificRotation(idx, d.deg)}
+                              className={`py-1 rounded-md transition-all ${
+                                (page.rotation || 0) === d.deg
+                                  ? 'bg-amber-400 text-purple-950 font-black shadow-xs'
+                                  : 'bg-white/[0.04] text-purple-300/80 hover:bg-white/[0.1] hover:text-white'
+                              }`}
+                            >
+                              {d.label}
+                            </button>
+                          ))}
+                        </div>
+
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : loadingPages ? (
                 <div className="min-h-[300px] flex flex-col items-center justify-center gap-3 text-purple-300">
                   <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
@@ -1465,30 +1650,82 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                   </div>
                 )}
 
-                {['rotate', 'crop-pdf'].includes(tool.id) && (
-                  <div className="space-y-2">
-                    <label className="block text-xs font-bold text-purple-200">
-                      Rotation Angle:
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { angle: 90, label: '90° CW' },
-                        { angle: 180, label: '180° Flip' },
-                        { angle: 270, label: '270° CCW' },
-                      ].map(opt => (
+                {['rotate', 'crop-pdf', 'scan-to-pdf'].includes(tool.id) && (
+                  <div className="space-y-4">
+                    {/* Real-time Summary Card */}
+                    {scanPages.length > 0 && (
+                      <div className="p-3.5 rounded-2xl bg-purple-950/60 border border-purple-800/40 space-y-2">
+                        <div className="text-xs font-bold text-amber-300 mb-1">
+                          Document Overview:
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex items-center justify-between p-2 rounded-xl bg-white/[0.04]">
+                            <span className="text-purple-300">Total Pages:</span>
+                            <span className="font-bold text-white">{scanPages.length}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded-xl bg-white/[0.04]">
+                            <span className="text-purple-300">Rotated:</span>
+                            <span className="font-bold text-amber-300">{scanPages.filter(p => p.rotation && p.rotation > 0).length}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Degree Selection */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-purple-200">
+                        Rotation Degree for All Pages:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { angle: 0, label: '0° Normal', desc: 'Default orientation' },
+                          { angle: 90, label: '90° CW', desc: 'Clockwise rotation' },
+                          { angle: 180, label: '180° Flip', desc: 'Upside down' },
+                          { angle: 270, label: '270° CCW', desc: 'Counter-clockwise' },
+                        ].map(opt => (
+                          <button
+                            key={opt.angle}
+                            type="button"
+                            onClick={() => setAllPagesToAngle(opt.angle)}
+                            className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                              rotateAngle === opt.angle 
+                                ? 'bg-amber-400/20 border-amber-400 text-amber-300 ring-1 ring-amber-400/60 shadow-md' 
+                                : 'bg-white/[0.04] text-purple-200 border-purple-600/40 hover:bg-white/[0.08]'
+                            }`}
+                          >
+                            <div className="text-xs font-bold flex items-center justify-between">
+                              <span>{opt.label}</span>
+                              {rotateAngle === opt.angle && <Check className="w-3 h-3 text-amber-400" />}
+                            </div>
+                            <div className="text-[10px] text-purple-300/70 mt-0.5">{opt.desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Batch Actions */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-purple-200">
+                        Quick Batch Controls:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
                         <button
-                          key={opt.angle}
                           type="button"
-                          onClick={() => setRotateAngle(opt.angle)}
-                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
-                            rotateAngle === opt.angle 
-                              ? 'bg-amber-400 text-purple-950 border-amber-400 shadow-md' 
-                              : 'bg-white/[0.06] text-purple-200 border-purple-600/40 hover:bg-white/[0.12]'
-                          }`}
+                          onClick={() => rotateAllScanPages(90)}
+                          className="py-2.5 px-2 rounded-xl text-xs font-bold bg-purple-900/80 hover:bg-purple-800 border border-purple-600/40 text-purple-200 hover:text-white transition-all flex items-center justify-center gap-1.5"
                         >
-                          {opt.label}
+                          <RotateCw className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Rotate +90°</span>
                         </button>
-                      ))}
+                        <button
+                          type="button"
+                          onClick={resetScanPages}
+                          className="py-2.5 px-2 rounded-xl text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Reset 0°</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
