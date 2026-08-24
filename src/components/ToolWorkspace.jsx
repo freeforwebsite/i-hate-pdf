@@ -41,6 +41,7 @@ import {
   pdfToMarkdownExport,
   exportDataFormat,
   organizePDFPages,
+  performOCRPDF,
   compressPDF, 
   downloadBlob 
 } from '../utils/pdfEngine';
@@ -77,6 +78,9 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.25);
   const [pageNumberPos, setPageNumberPos] = useState('bottom-center');
   const [compressLevel, setCompressLevel] = useState('recommended');
+  const [ocrLanguage, setOcrLanguage] = useState('English');
+  const [ocrFormat, setOcrFormat] = useState('searchable-pdf');
+  const [ocrAccuracy, setOcrAccuracy] = useState('enhanced');
   const [protectPassword, setProtectPassword] = useState('');
 
   const fileInputRef = useRef(null);
@@ -583,9 +587,15 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
         case 'pdf-to-pdfa':
         case 'compress':
         case 'repair-pdf':
-        case 'ocr-pdf':
         case 'flatten-pdf':
           res = await compressPDF(files[0], compressLevel);
+          break;
+        case 'ocr-pdf':
+          res = await performOCRPDF(files[0], {
+            language: ocrLanguage,
+            outputFormat: ocrFormat,
+            accuracy: ocrAccuracy
+          });
           break;
 
         // Security Tools
@@ -1789,7 +1799,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                   </div>
                 )}
 
-                {['compress', 'repair-pdf', 'ocr-pdf'].includes(tool.id) && (
+                {['compress', 'repair-pdf'].includes(tool.id) && (
                   <div className="space-y-2">
                     <label className="block text-xs font-bold text-purple-200">
                       Compression Quality:
@@ -1813,6 +1823,92 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                           <div className="text-[10px] text-purple-300/70">{lvl.desc}</div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {tool.id === 'ocr-pdf' && (
+                  <div className="space-y-4">
+                    {/* Recognition Language */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-purple-200">
+                        Document OCR Language:
+                      </label>
+                      <select
+                        value={ocrLanguage}
+                        onChange={(e) => setOcrLanguage(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#14032a] border border-purple-600/40 text-white text-xs font-semibold focus:outline-none focus:border-amber-400"
+                      >
+                        <option value="English">English (Standard)</option>
+                        <option value="Spanish">Spanish (Español)</option>
+                        <option value="French">French (Français)</option>
+                        <option value="German">German (Deutsch)</option>
+                        <option value="Hindi">Hindi (हिंदी)</option>
+                        <option value="Chinese">Chinese (中文)</option>
+                        <option value="Japanese">Japanese (日本語)</option>
+                        <option value="Auto">Auto-Detect Multilingual</option>
+                      </select>
+                    </div>
+
+                    {/* OCR Output Format */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-purple-200">
+                        OCR Output Format:
+                      </label>
+                      <div className="space-y-2">
+                        {[
+                          { id: 'searchable-pdf', name: 'Searchable PDF (.pdf)', desc: 'Embeds searchable & selectable text layer over PDF' },
+                          { id: 'docx', name: 'Editable Word (.docx)', desc: 'Converts recognized text into an editable Word doc' },
+                          { id: 'txt', name: 'Plain Text (.txt)', desc: 'Extracts clean raw text content' },
+                        ].map(fmt => (
+                          <div
+                            key={fmt.id}
+                            onClick={() => setOcrFormat(fmt.id)}
+                            className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                              ocrFormat === fmt.id 
+                                ? 'bg-amber-400/20 border-amber-400 text-amber-300 ring-1 ring-amber-400/60 shadow-md' 
+                                : 'bg-white/[0.04] border-purple-600/40 text-purple-200 hover:bg-white/[0.08]'
+                            }`}
+                          >
+                            <div className="text-xs font-bold flex items-center justify-between">
+                              <span>{fmt.name}</span>
+                              {ocrFormat === fmt.id && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                            </div>
+                            <div className="text-[10px] text-purple-300/70 mt-0.5">{fmt.desc}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* OCR Recognition Accuracy */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-purple-200">
+                        Recognition Precision:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setOcrAccuracy('enhanced')}
+                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
+                            ocrAccuracy === 'enhanced'
+                              ? 'bg-amber-400 text-purple-950 border-amber-400 shadow-md'
+                              : 'bg-white/[0.06] text-purple-200 border-purple-600/40 hover:bg-white/[0.12]'
+                          }`}
+                        >
+                          Enhanced (High)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOcrAccuracy('standard')}
+                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
+                            ocrAccuracy === 'standard'
+                              ? 'bg-amber-400 text-purple-950 border-amber-400 shadow-md'
+                              : 'bg-white/[0.06] text-purple-200 border-purple-600/40 hover:bg-white/[0.12]'
+                          }`}
+                        >
+                          Standard (Fast)
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
