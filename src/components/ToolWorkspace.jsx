@@ -45,12 +45,14 @@ import {
   downloadBlob 
 } from '../utils/pdfEngine';
 import { saveFileToVault } from '../utils/fileVault';
-import { trackToolUsage } from '../utils/analytics';
-import { generatePdfThumbnail } from '../utils/pdfThumbnail';
+import { generatePdfThumbnail, generatePdfAllPages } from '../utils/pdfThumbnail';
 
 export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
   const [files, setFiles] = useState([]);
   const [thumbnails, setThumbnails] = useState({});
+  const [pdfPages, setPdfPages] = useState([]);
+  const [selectedDeleteSet, setSelectedDeleteSet] = useState(new Set());
+  const [loadingPages, setLoadingPages] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
@@ -82,6 +84,8 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
+  const isPageTool = ['delete-pages', 'split', 'extract-pages', 'reorder-pages'].includes(tool.id);
+
   // Generate real PDF first-page thumbnails
   useEffect(() => {
     let isMounted = true;
@@ -96,8 +100,24 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
         } catch (e) {}
       }
     });
+
+    // If single PDF on page tool (like Remove pages, Split, Reorder), extract all page thumbnails
+    if (isPageTool && files.length === 1 && (files[0].name.endsWith('.pdf') || files[0].type === 'application/pdf')) {
+      setLoadingPages(true);
+      generatePdfAllPages(files[0]).then(pages => {
+        if (isMounted) {
+          setPdfPages(pages);
+          setLoadingPages(false);
+        }
+      }).catch(() => {
+        if (isMounted) setLoadingPages(false);
+      });
+    } else {
+      setPdfPages([]);
+    }
+
     return () => { isMounted = false; };
-  }, [files]);
+  }, [files, tool.id]);
 
   // Handle file drop / select
   const handleFiles = (incomingFiles) => {
@@ -162,8 +182,62 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     setFiles(sorted);
   };
 
+  // Toggle a page for removal in Remove pages tool
+  const toggleDeletePage = (pageNum) => {
+    const next = new Set(selectedDeleteSet);
+    if (next.has(pageNum)) {
+      next.delete(pageNum);
+    } else {
+      next.add(pageNum);
+    }
+    setSelectedDeleteSet(next);
+    const sorted = Array.from(next).sort((a, b) => a - b);
+    setDeletePagesStr(sorted.join(', '));
+  };
+
+  // Sync manual input in sidebar to page cards
+  const handleManualDeleteInputChange = (val) => {
+    setDeletePagesStr(val);
+    const parts = val.split(',').map(s => s.trim()).filter(Boolean);
+    const set = new Set();
+    for (const p of parts) {
+      if (p.includes('-')) {
+        const [start, end] = p.split('-').map(Number);
+        if (!isNaN(start) && !isNaN(end)) {
+          for (let i = start; i <= end; i++) set.add(i);
+        }
+      } else {
+        const n = Number(p);
+        if (!isNaN(n)) set.add(n);
+      }
+    }
+    setSelectedDeleteSet(set);
+  };
+
+  const selectEvenPages = () => {
+    const set = new Set();
+    pdfPages.forEach(p => { if (p.pageNumber % 2 === 0) set.add(p.pageNumber); });
+    setSelectedDeleteSet(set);
+    setDeletePagesStr(Array.from(set).sort((a, b) => a - b).join(', '));
+  };
+
+  const selectOddPages = () => {
+    const set = new Set();
+    pdfPages.forEach(p => { if (p.pageNumber % 2 !== 0) set.add(p.pageNumber); });
+    setSelectedDeleteSet(set);
+    setDeletePagesStr(Array.from(set).sort((a, b) => a - b).join(', '));
+  };
+
+  const clearDeleteSelection = () => {
+    setSelectedDeleteSet(new Set());
+    setDeletePagesStr('');
+  };
+
   const removeFile = (index) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
+    setSelectedDeleteSet(new Set());
+    setDeletePagesStr('');
+    setPdfPages([]);
     if (files.length <= 1) {
       setResult(null);
     }
@@ -174,6 +248,13 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     if (files.length === 0) {
       setError('Please select or drop files to proceed.');
       return;
+    }
+
+    if (tool.id === 'delete-pages') {
+      if (!deletePagesStr || !deletePagesStr.trim()) {
+        setError('Please click on at least 1 page or enter page numbers to remove.');
+        return;
+      }
     }
 
     setProcessing(true);
@@ -452,89 +533,181 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
             {/* 1. LEFT / CENTER: OBSIDIAN DOCUMENT CARDS CANVAS (8 COLUMNS) */}
             <div className="lg:col-span-8 bg-[#14032a]/90 backdrop-blur-2xl border border-purple-500/30 rounded-3xl p-6 sm:p-8 min-h-[500px] relative flex flex-col justify-between shadow-2xl shadow-purple-950/80">
               
-              {/* Visual Document Cards Grid with Live Drag and Drop Animation */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-5">
-                {files.map((file, idx) => {
-                  const thumbKey = `${file.name}_${file.size}_${file.lastModified}`;
-                  const thumbUrl = thumbnails[thumbKey];
-                  const isBeingDragged = draggedIndex === idx;
+              {/* 1A. REMOVE PAGES CANVAS: Individual PDF Page Cards */}
+              {tool.id === 'delete-pages' && pdfPages.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-xs text-purple-200/80 px-1">
+                    <span>Click on pages to mark them for removal:</span>
+                    <span className="font-bold text-amber-300">
+                      Total {pdfPages.length} Pages
+                    </span>
+                  </div>
 
-                  return (
-                    <div 
-                      key={thumbKey + '_' + idx}
-                      draggable={true}
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('text/plain', idx.toString());
-                        e.dataTransfer.effectAllowed = 'move';
-                        setDraggedIndex(idx);
-                      }}
-                      onDragOver={(e) => handleDragOverItem(e, idx)}
-                      onDragEnd={() => {
-                        setDraggedIndex(null);
-                      }}
-                      className={`group relative bg-[#1b0638] rounded-2xl border transition-all duration-300 ease-out transform overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none ${
-                        isBeingDragged 
-                          ? 'scale-105 rotate-2 opacity-70 border-amber-400 ring-4 ring-amber-400/40 shadow-2xl shadow-amber-400/50 z-30' 
-                          : 'border-purple-500/30 hover:border-amber-400/60 shadow-lg hover:shadow-2xl hover:shadow-purple-900/40 hover:-translate-y-1'
-                      }`}
-                    >
-                      {/* Neon Index Badge (PDF No) */}
-                      <div className="absolute top-2.5 left-2.5 z-10">
-                        <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-400 to-yellow-400 text-purple-950 font-black text-xs flex items-center justify-center shadow-md">
-                          {idx + 1}
-                        </div>
-                      </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-5">
+                    {pdfPages.map((page) => {
+                      const isDeleted = selectedDeleteSet.has(page.pageNumber);
 
-                      {/* Card Delete Control Only */}
-                      <div className="absolute top-2.5 right-2.5 z-10">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
-                          className="p-1.5 rounded-lg bg-purple-950/90 hover:bg-rose-900/90 text-rose-300 hover:text-rose-100 border border-rose-500/40 shadow-md transition-all hover:scale-105 active:scale-95"
-                          title="Delete Document"
+                      return (
+                        <div 
+                          key={page.pageNumber}
+                          onClick={() => toggleDeletePage(page.pageNumber)}
+                          className={`group relative rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col cursor-pointer select-none ${
+                            isDeleted 
+                              ? 'bg-rose-950/60 border-rose-500 ring-2 ring-rose-500/80 shadow-2xl shadow-rose-950/90 scale-95 opacity-90' 
+                              : 'bg-[#1b0638] border-purple-500/30 hover:border-amber-400/60 shadow-lg hover:shadow-2xl hover:shadow-purple-900/40 hover:-translate-y-1'
+                          }`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      {/* Document Preview Canvas / High-Res Thumbnail */}
-                      <div className="w-full h-52 sm:h-56 bg-slate-900/60 flex items-center justify-center p-3 overflow-hidden border-b border-purple-900/40">
-                        {thumbUrl ? (
-                          <img 
-                            src={thumbUrl} 
-                            alt="PDF Preview" 
-                            className="max-h-full max-w-full object-contain rounded-md shadow-md bg-white pointer-events-none" 
-                          />
-                        ) : (
-                          <div className="w-full h-full rounded-lg bg-white/5 border border-white/10 p-4 flex flex-col justify-between shadow-xs pointer-events-none">
-                            <div className="space-y-2">
-                              <div className="h-2 w-3/4 bg-purple-500/20 rounded"></div>
-                              <div className="h-1.5 w-full bg-purple-500/10 rounded"></div>
-                              <div className="h-1.5 w-5/6 bg-purple-500/10 rounded"></div>
-                              <div className="h-1.5 w-2/3 bg-purple-500/10 rounded"></div>
+                          {/* Page Number Badge */}
+                          <div className="absolute top-2.5 left-2.5 z-10">
+                            <div className={`px-2 py-0.5 rounded-lg text-xs font-black shadow-md ${
+                              isDeleted 
+                                ? 'bg-rose-600 text-white' 
+                                : 'bg-gradient-to-tr from-amber-400 to-yellow-400 text-purple-950'
+                            }`}>
+                              Page {page.pageNumber}
                             </div>
-                            <div className="flex items-center justify-center">
-                              <FileText className="w-10 h-10 text-rose-400" />
-                            </div>
-                            <div className="h-1.5 w-1/2 bg-purple-500/10 rounded self-center"></div>
                           </div>
-                        )}
-                      </div>
 
-                      {/* File Meta Info */}
-                      <div className="p-3 bg-[#170533]">
-                        <div className="text-xs font-bold text-white truncate" title={file.name}>
-                          {file.name}
-                        </div>
-                        <div className="text-[11px] text-purple-300/70 mt-0.5 font-medium">
-                          {formatSize(file.size)}
-                        </div>
-                      </div>
+                          {/* Delete / Remove Toggle Button */}
+                          <div className="absolute top-2.5 right-2.5 z-10">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); toggleDeletePage(page.pageNumber); }}
+                              className={`p-1.5 rounded-lg shadow-md transition-all ${
+                                isDeleted 
+                                  ? 'bg-rose-600 text-white ring-2 ring-rose-400' 
+                                  : 'bg-purple-950/90 text-purple-300 hover:text-rose-300 hover:bg-rose-950/80 border border-purple-600/40'
+                              }`}
+                              title={isDeleted ? 'Cancel Deletion' : 'Mark for Deletion'}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
 
-                    </div>
-                  );
-                })}
-              </div>
+                          {/* Page Preview Canvas */}
+                          <div className="w-full h-52 sm:h-56 bg-slate-900/60 flex items-center justify-center p-3 overflow-hidden border-b border-purple-900/40 relative">
+                            <img 
+                              src={page.dataUrl} 
+                              alt={`Page ${page.pageNumber}`} 
+                              className={`max-h-full max-w-full object-contain rounded-md shadow-md bg-white transition-opacity ${
+                                isDeleted ? 'opacity-30 grayscale' : 'opacity-100'
+                              }`} 
+                            />
+                            {/* Marked For Deletion Banner Overlay */}
+                            {isDeleted && (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-rose-950/70 backdrop-blur-[1px] p-2 text-center animate-in fade-in zoom-in-90 duration-150">
+                                <div className="w-10 h-10 rounded-full bg-rose-600 text-white flex items-center justify-center mb-1.5 shadow-lg shadow-rose-600/50">
+                                  <Trash2 className="w-5 h-5" />
+                                </div>
+                                <span className="text-xs font-black text-rose-200 uppercase tracking-wider">
+                                  Will Be Removed
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Page Status Footer */}
+                          <div className={`p-2.5 text-center text-xs font-bold transition-colors ${
+                            isDeleted ? 'bg-rose-950 text-rose-300' : 'bg-[#170533] text-purple-200'
+                          }`}>
+                            {isDeleted ? '❌ To be deleted' : `Page ${page.pageNumber}`}
+                          </div>
+
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : loadingPages ? (
+                <div className="min-h-[300px] flex flex-col items-center justify-center gap-3 text-purple-300">
+                  <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+                  <span className="text-sm font-semibold">Extracting page thumbnails...</span>
+                </div>
+              ) : (
+                /* 1B. STANDARD DOCUMENT CARDS CANVAS (e.g. Merge PDF / Single File) */
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-5">
+                  {files.map((file, idx) => {
+                    const thumbKey = `${file.name}_${file.size}_${file.lastModified}`;
+                    const thumbUrl = thumbnails[thumbKey];
+                    const isBeingDragged = draggedIndex === idx;
+
+                    return (
+                      <div 
+                        key={thumbKey + '_' + idx}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', idx.toString());
+                          e.dataTransfer.effectAllowed = 'move';
+                          setDraggedIndex(idx);
+                        }}
+                        onDragOver={(e) => handleDragOverItem(e, idx)}
+                        onDragEnd={() => {
+                          setDraggedIndex(null);
+                        }}
+                        className={`group relative bg-[#1b0638] rounded-2xl border transition-all duration-300 ease-out transform overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none ${
+                          isBeingDragged 
+                            ? 'scale-105 rotate-2 opacity-70 border-amber-400 ring-4 ring-amber-400/40 shadow-2xl shadow-amber-400/50 z-30' 
+                            : 'border-purple-500/30 hover:border-amber-400/60 shadow-lg hover:shadow-2xl hover:shadow-purple-900/40 hover:-translate-y-1'
+                        }`}
+                      >
+                        {/* Neon Index Badge (PDF No) */}
+                        <div className="absolute top-2.5 left-2.5 z-10">
+                          <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-400 to-yellow-400 text-purple-950 font-black text-xs flex items-center justify-center shadow-md">
+                            {idx + 1}
+                          </div>
+                        </div>
+
+                        {/* Card Delete Control Only */}
+                        <div className="absolute top-2.5 right-2.5 z-10">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
+                            className="p-1.5 rounded-lg bg-purple-950/90 hover:bg-rose-900/90 text-rose-300 hover:text-rose-100 border border-rose-500/40 shadow-md transition-all hover:scale-105 active:scale-95"
+                            title="Delete Document"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Document Preview Canvas / High-Res Thumbnail */}
+                        <div className="w-full h-52 sm:h-56 bg-slate-900/60 flex items-center justify-center p-3 overflow-hidden border-b border-purple-900/40">
+                          {thumbUrl ? (
+                            <img 
+                              src={thumbUrl} 
+                              alt="PDF Preview" 
+                              className="max-h-full max-w-full object-contain rounded-md shadow-md bg-white pointer-events-none" 
+                            />
+                          ) : (
+                            <div className="w-full h-full rounded-lg bg-white/5 border border-white/10 p-4 flex flex-col justify-between shadow-xs pointer-events-none">
+                              <div className="space-y-2">
+                                <div className="h-2 w-3/4 bg-purple-500/20 rounded"></div>
+                                <div className="h-1.5 w-full bg-purple-500/10 rounded"></div>
+                                <div className="h-1.5 w-5/6 bg-purple-500/10 rounded"></div>
+                                <div className="h-1.5 w-2/3 bg-purple-500/10 rounded"></div>
+                              </div>
+                              <div className="flex items-center justify-center">
+                                <FileText className="w-10 h-10 text-rose-400" />
+                              </div>
+                              <div className="h-1.5 w-1/2 bg-purple-500/10 rounded self-center"></div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* File Meta Info */}
+                        <div className="p-3 bg-[#170533]">
+                          <div className="text-xs font-bold text-white truncate" title={file.name}>
+                            {file.name}
+                          </div>
+                          <div className="text-[11px] text-purple-300/70 mt-0.5 font-medium">
+                            {formatSize(file.size)}
+                          </div>
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Floating Action Cluster: Add More (+) & A-Z Sort Buttons */}
               {tool.multiple && (
@@ -594,6 +767,68 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                 </div>
 
                 {/* DYNAMIC PARAMETERS IF APPLICABLE */}
+                {tool.id === 'delete-pages' && (
+                  <div className="space-y-3.5">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-purple-200">
+                          Pages to Remove:
+                        </label>
+                        {selectedDeleteSet.size > 0 && (
+                          <span className="text-[11px] font-black text-rose-400 bg-rose-950/60 border border-rose-500/30 px-2 py-0.5 rounded-full">
+                            {selectedDeleteSet.size} marked
+                          </span>
+                        )}
+                      </div>
+                      <input 
+                        type="text"
+                        value={deletePagesStr}
+                        onChange={(e) => handleManualDeleteInputChange(e.target.value)}
+                        placeholder="Click pages or type e.g. 1, 3-5"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.06] border border-purple-600/40 text-white text-xs font-medium focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-purple-300/80 mb-1.5">
+                        Quick Selection:
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={selectOddPages}
+                          className="py-2 px-2 rounded-xl text-xs font-bold bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 transition-all text-center"
+                        >
+                          Odd Pages
+                        </button>
+                        <button
+                          type="button"
+                          onClick={selectEvenPages}
+                          className="py-2 px-2 rounded-xl text-xs font-bold bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 transition-all text-center"
+                        >
+                          Even Pages
+                        </button>
+                        <button
+                          type="button"
+                          onClick={clearDeleteSelection}
+                          className="py-2 px-2 rounded-xl text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 transition-all text-center"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    {pdfPages.length > 0 && (
+                      <div className="p-3 rounded-2xl bg-purple-950/60 border border-purple-800/40 text-xs text-purple-300 flex items-center justify-between">
+                        <span>Remaining Pages:</span>
+                        <span className="font-bold text-amber-300 text-sm">
+                          {Math.max(0, pdfPages.length - selectedDeleteSet.size)} / {pdfPages.length}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {['split', 'extract-pages'].includes(tool.id) && (
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-purple-200">

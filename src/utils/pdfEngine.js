@@ -164,10 +164,19 @@ export const deletePagesPDF = async (file, pagesToDeleteStr) => {
   const arrayBuffer = await readFileAsArrayBuffer(file);
   const pdfDoc = await PDFDocument.load(arrayBuffer);
   const totalPages = pdfDoc.getPageCount();
-  const deleteList = parsePageRange(pagesToDeleteStr || '1', totalPages);
+  
+  if (!pagesToDeleteStr || !pagesToDeleteStr.trim()) {
+    throw new Error('Please click or specify at least one page to remove.');
+  }
+
+  const deleteList = parsePageRange(pagesToDeleteStr, totalPages);
+
+  if (deleteList.length === 0) {
+    throw new Error('Please specify valid page numbers to remove.');
+  }
 
   if (deleteList.length >= totalPages) {
-    throw new Error('Cannot delete all pages of the document.');
+    throw new Error(`Cannot delete all ${totalPages} pages. The PDF must keep at least 1 page.`);
   }
 
   const keepIndices = [];
