@@ -42,6 +42,7 @@ import {
   exportDataFormat,
   organizePDFPages,
   performOCRPDF,
+  pdfToJPGImages,
   compressPDF, 
   downloadBlob 
 } from '../utils/pdfEngine';
@@ -71,6 +72,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
   // Custom tool options state
   const [splitRange, setSplitRange] = useState('');
   const [extractMode, setExtractMode] = useState('single'); // 'single' (1 combined PDF) or 'separate' (ZIP)
+  const [jpgQuality, setJpgQuality] = useState('high'); // 'high' (300 DPI) or 'standard' (150 DPI)
   const [pageOrderStr, setPageOrderStr] = useState('');
   const [rotateAngle, setRotateAngle] = useState(0);
   const [deletePagesStr, setDeletePagesStr] = useState('');
@@ -113,7 +115,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     return ranges.join(', ');
   };
 
-  const isPageTool = ['delete-pages', 'split', 'extract-pages', 'reorder-pages', 'scan-to-pdf', 'rotate', 'crop-pdf'].includes(tool.id);
+  const isPageTool = ['delete-pages', 'split', 'extract-pages', 'reorder-pages', 'scan-to-pdf', 'rotate', 'crop-pdf', 'pdf-to-jpg'].includes(tool.id);
 
   // Generate real PDF first-page thumbnails
   useEffect(() => {
@@ -528,8 +530,14 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
           break;
         case 'split':
         case 'extract-pages':
-        case 'pdf-to-jpg':
           res = await splitPDF(files[0], splitRange, extractMode);
+          break;
+        case 'pdf-to-jpg':
+          res = await pdfToJPGImages(files[0], {
+            quality: jpgQuality === 'high' ? 0.95 : 0.85,
+            scale: jpgQuality === 'high' ? 2.0 : 1.4,
+            pageRange: splitRange
+          });
           break;
         case 'reorder-pages':
           res = await organizePDFPages(files[0], { pageActions: organizePages });
@@ -558,10 +566,10 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
           res = await imagesToPDF(files);
           break;
         case 'word-to-pdf':
-          res = await convertOfficeToPDF(files[0], 'Word Document');
+          res = await convertOfficeToPDF(files[0], 'Microsoft Word');
           break;
         case 'ppt-to-pdf':
-          res = await convertOfficeToPDF(files[0], 'PowerPoint Presentation');
+          res = await convertOfficeToPDF(files[0], 'PowerPoint');
           break;
         case 'excel-to-pdf':
           res = await convertOfficeToPDF(files[0], 'Excel Spreadsheet');
@@ -665,10 +673,22 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
   // Download Trigger
   const handleDownload = () => {
     if (!result) return;
-    if (result.type === 'zip') {
+    if (result.type === 'zip' || result.filename?.endsWith('.zip')) {
       downloadBlob(result.blob, result.filename, 'application/zip');
+    } else if (result.type === 'jpg' || result.filename?.endsWith('.jpg') || result.filename?.endsWith('.jpeg')) {
+      downloadBlob(result.blob, result.filename, 'image/jpeg');
+    } else if (result.type === 'png' || result.filename?.endsWith('.png')) {
+      downloadBlob(result.blob, result.filename, 'image/png');
+    } else if (result.type === 'txt' || result.filename?.endsWith('.txt')) {
+      downloadBlob(result.blob, result.filename, 'text/plain;charset=utf-8');
     } else if (result.blob) {
-      const mime = result.filename.endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf';
+      const mime = result.filename?.endsWith('.docx') 
+        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+        : (result.filename?.endsWith('.xlsx')
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            : (result.filename?.endsWith('.pptx')
+                ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+                : 'application/pdf'));
       downloadBlob(result.blob, result.filename, mime);
     } else if (result.bytes) {
       downloadBlob(result.bytes, result.filename, 'application/pdf');
@@ -874,11 +894,15 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                     })}
                   </div>
                 </div>
-              ) : ['split', 'extract-pages'].includes(tool.id) && pdfPages.length > 0 ? (
-                /* 1B. EXTRACT PAGES / SPLIT CANVAS: Individual PDF Page Cards (Extract) */
+              ) : ['split', 'extract-pages', 'pdf-to-jpg'].includes(tool.id) && pdfPages.length > 0 ? (
+                /* 1B. EXTRACT PAGES / SPLIT / PDF TO JPG CANVAS: Individual PDF Page Cards */
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-xs text-purple-200/80 px-1">
-                    <span>Click on pages to select them for extraction:</span>
+                    <span>
+                      {tool.id === 'pdf-to-jpg' 
+                        ? 'Click pages to select (leave unselected to convert all pages to JPG):' 
+                        : 'Click on pages to select them for extraction:'}
+                    </span>
                     <span className="font-bold text-amber-300">
                       Total {pdfPages.length} Pages
                     </span>
@@ -916,10 +940,10 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                               onClick={(e) => { e.stopPropagation(); toggleExtractPage(page.pageNumber); }}
                               className={`w-7 h-7 rounded-lg shadow-md transition-all flex items-center justify-center ${
                                 isSelected 
-                                  ? 'bg-amber-400 text-purple-950 font-black ring-2 ring-amber-300' 
+                                    ? 'bg-amber-400 text-purple-950 font-black ring-2 ring-amber-300' 
                                   : 'bg-purple-950/90 text-purple-400 hover:text-amber-300 hover:bg-purple-900/80 border border-purple-600/40'
                               }`}
-                              title={isSelected ? 'Deselect Page' : 'Select Page for Extraction'}
+                              title={isSelected ? 'Deselect Page' : 'Select Page'}
                             >
                               <Check className={`w-4 h-4 stroke-[3] ${isSelected ? 'text-purple-950' : 'text-purple-400'}`} />
                             </button>
@@ -934,7 +958,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                                 isSelected ? 'opacity-100' : 'opacity-60'
                               }`} 
                             />
-                            {/* Selected For Extraction Overlay Badge */}
+                            {/* Selected Overlay Badge */}
                             {isSelected && (
                               <div className="absolute top-3 right-11 px-2.5 py-0.5 rounded-full bg-amber-400/90 text-purple-950 text-[10px] font-black tracking-wide shadow-md uppercase">
                                 Selected
@@ -946,7 +970,9 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                           <div className={`p-2.5 text-center text-xs font-bold transition-colors ${
                             isSelected ? 'bg-amber-400/20 text-amber-300 border-t border-amber-400/30' : 'bg-[#170533] text-purple-300/70'
                           }`}>
-                            {isSelected ? '✔ Ready to Extract' : 'Click to select'}
+                            {isSelected 
+                              ? (tool.id === 'pdf-to-jpg' ? '✔ Convert to JPG' : '✔ Ready to Extract') 
+                              : 'Click to select'}
                           </div>
 
                         </div>
@@ -1579,6 +1605,119 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                         <span>Selected to Extract:</span>
                         <span className="font-bold text-amber-300 text-sm">
                           {selectedExtractSet.size} / {pdfPages.length} pages
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {tool.id === 'pdf-to-jpg' && (
+                  <div className="space-y-4">
+                    {/* Image Quality / Resolution Selector */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-purple-200">
+                        JPG Image Resolution:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setJpgQuality('high')}
+                          className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between gap-1.5 ${
+                            jpgQuality === 'high'
+                              ? 'bg-amber-400/20 border-amber-400 text-amber-300 ring-1 ring-amber-400/60 shadow-lg'
+                              : 'bg-white/[0.04] border-purple-600/40 text-purple-200 hover:bg-white/[0.08]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black">Ultra HD (300 DPI)</span>
+                            {jpgQuality === 'high' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                          </div>
+                          <span className="text-[10px] text-purple-300/80 leading-tight">
+                            95% Quality • Crisp clarity
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setJpgQuality('standard')}
+                          className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between gap-1.5 ${
+                            jpgQuality === 'standard'
+                              ? 'bg-amber-400/20 border-amber-400 text-amber-300 ring-1 ring-amber-400/60 shadow-lg'
+                              : 'bg-white/[0.04] border-purple-600/40 text-purple-200 hover:bg-white/[0.08]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black">Standard (150 DPI)</span>
+                            {jpgQuality === 'standard' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                          </div>
+                          <span className="text-[10px] text-purple-300/80 leading-tight">
+                            85% Quality • Compact size
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-purple-200">
+                          Pages to Convert:
+                        </label>
+                        {selectedExtractSet.size > 0 && (
+                          <span className="text-[11px] font-black text-amber-300 bg-amber-400/20 border border-amber-400/30 px-2 py-0.5 rounded-full">
+                            {selectedExtractSet.size} selected
+                          </span>
+                        )}
+                      </div>
+                      <input 
+                        type="text"
+                        value={splitRange}
+                        onChange={(e) => handleManualExtractInputChange(e.target.value)}
+                        placeholder="Leave blank for ALL pages, or e.g. 1-3, 5"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.06] border border-purple-600/40 text-white text-xs font-medium focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-purple-300/80 mb-1.5">
+                        Quick Selection:
+                      </label>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={selectAllExtractPages}
+                          className="py-2 px-1 rounded-xl text-xs font-bold bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 transition-all text-center"
+                        >
+                          All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={selectOddExtractPages}
+                          className="py-2 px-1 rounded-xl text-xs font-bold bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 transition-all text-center"
+                        >
+                          Odd
+                        </button>
+                        <button
+                          type="button"
+                          onClick={selectEvenExtractPages}
+                          className="py-2 px-1 rounded-xl text-xs font-bold bg-white/[0.06] hover:bg-white/[0.12] border border-purple-600/40 text-purple-200 transition-all text-center"
+                        >
+                          Even
+                        </button>
+                        <button
+                          type="button"
+                          onClick={clearExtractSelection}
+                          className="py-2 px-1 rounded-xl text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 transition-all text-center"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    {pdfPages.length > 0 && (
+                      <div className="p-3 rounded-2xl bg-purple-950/60 border border-purple-800/40 text-xs text-purple-300 flex items-center justify-between">
+                        <span>Output Format:</span>
+                        <span className="font-bold text-amber-300 text-xs">
+                          {selectedExtractSet.size === 1 || (selectedExtractSet.size === 0 && pdfPages.length === 1) ? 'Single .JPG image' : 'All JPGs in .ZIP archive'}
                         </span>
                       </div>
                     )}

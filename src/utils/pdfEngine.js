@@ -686,6 +686,86 @@ export const performOCRPDF = async (file, { language = 'English', outputFormat =
 };
 
 // ============================================================
+// 18. PDF TO JPG IMAGES (Export each page as real JPG image or ZIP)
+// ============================================================
+export const pdfToJPGImages = async (file, { quality = 0.92, scale = 2.0, pageRange = '' } = {}) => {
+  const baseName = file.name.replace(/\.[^/.]+$/, '');
+  const arrayBuffer = await readFileAsArrayBuffer(file);
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const pdfDoc = await loadingTask.promise;
+  const totalPages = pdfDoc.numPages;
+
+  let targetPages = [];
+  if (pageRange && pageRange.trim()) {
+    targetPages = parsePageRange(pageRange, totalPages);
+  } else {
+    targetPages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  if (targetPages.length === 0) {
+    throw new Error('No valid pages found to convert to JPG.');
+  }
+
+  // If only 1 page to convert, return single JPG image directly
+  if (targetPages.length === 1) {
+    const pageNum = targetPages[0];
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: scale });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    await page.render({
+      canvasContext: context,
+      viewport: viewport,
+    }).promise;
+
+    const blob = await new Promise((resolve) => {
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', quality);
+    });
+
+    return {
+      type: 'jpg',
+      blob: blob,
+      filename: `${baseName}_page_${pageNum}.jpg`,
+      size: blob.size
+    };
+  }
+
+  // If multiple pages, render each page to JPG and bundle into ZIP archive
+  const zip = new JSZip();
+
+  for (const pageNum of targetPages) {
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: scale });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    await page.render({
+      canvasContext: context,
+      viewport: viewport,
+    }).promise;
+
+    const blob = await new Promise((resolve) => {
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', quality);
+    });
+
+    zip.file(`${baseName}_page_${pageNum}.jpg`, blob);
+  }
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  return {
+    type: 'zip',
+    blob: zipBlob,
+    filename: `${baseName}_jpg_images.zip`,
+    size: zipBlob.size
+  };
+};
+
+// ============================================================
 // HELPER: Parse page range strings like "1-3, 5, 7"
 // ============================================================
 function parsePageRange(rangeStr, maxPages) {
