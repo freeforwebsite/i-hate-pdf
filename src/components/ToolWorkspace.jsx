@@ -21,7 +21,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Lock,
-  Layers
+  Layers,
+  GripVertical
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { 
@@ -51,6 +52,8 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
   const [files, setFiles] = useState([]);
   const [thumbnails, setThumbnails] = useState({});
   const [isDragging, setIsDragging] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState(null);
@@ -126,7 +129,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     }
   };
 
-  // Reorder files
+  // Reorder files via button
   const moveFile = (index, direction) => {
     const target = index + direction;
     if (target < 0 || target >= files.length) return;
@@ -135,6 +138,21 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     updated[index] = updated[target];
     updated[target] = temp;
     setFiles(updated);
+  };
+
+  // Drag and Drop Card Reorder
+  const handleCardDrop = (targetIdx) => {
+    if (draggedIndex === null || draggedIndex === targetIdx) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    const updated = [...files];
+    const [movedItem] = updated.splice(draggedIndex, 1);
+    updated.splice(targetIdx, 0, movedItem);
+    setFiles(updated);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   // Sort files A-Z or Z-A
@@ -436,20 +454,58 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
             {/* 1. LEFT / CENTER: OBSIDIAN DOCUMENT CARDS CANVAS (8 COLUMNS) */}
             <div className="lg:col-span-8 bg-[#14032a]/90 backdrop-blur-2xl border border-purple-500/30 rounded-3xl p-6 sm:p-8 min-h-[500px] relative flex flex-col justify-between shadow-2xl shadow-purple-950/80">
               
-              {/* Visual Document Cards Grid */}
+              {/* Visual Document Cards Grid with Drag and Drop Reordering */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-5">
                 {files.map((file, idx) => {
                   const thumbKey = `${file.name}_${file.size}_${file.lastModified}`;
                   const thumbUrl = thumbnails[thumbKey];
+                  const isBeingDragged = draggedIndex === idx;
+                  const isDragOver = dragOverIndex === idx;
 
                   return (
                     <div 
                       key={idx}
-                      className="group relative bg-[#1b0638] rounded-2xl border border-purple-500/30 hover:border-amber-400/60 shadow-lg hover:shadow-2xl hover:shadow-purple-900/40 transition-all duration-200 overflow-hidden flex flex-col"
+                      draggable={true}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', idx);
+                        e.dataTransfer.effectAllowed = 'move';
+                        setDraggedIndex(idx);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                      }}
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        setDragOverIndex(idx);
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverIndex === idx) setDragOverIndex(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleCardDrop(idx);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedIndex(null);
+                        setDragOverIndex(null);
+                      }}
+                      className={`group relative bg-[#1b0638] rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none ${
+                        isBeingDragged 
+                          ? 'opacity-30 scale-95 border-dashed border-amber-400' 
+                          : isDragOver
+                          ? 'border-amber-400 ring-2 ring-amber-400/80 bg-purple-900/90 scale-105 shadow-2xl shadow-amber-400/40'
+                          : 'border-purple-500/30 hover:border-amber-400/60 shadow-lg hover:shadow-2xl hover:shadow-purple-900/40'
+                      }`}
                     >
-                      {/* Neon Index Badge */}
-                      <div className="absolute top-2.5 left-2.5 z-10 w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-400 to-yellow-400 text-purple-950 font-black text-xs flex items-center justify-center shadow-md">
-                        {idx + 1}
+                      {/* Drag Handle & Neon Index Badge */}
+                      <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5">
+                        <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-400 to-yellow-400 text-purple-950 font-black text-xs flex items-center justify-center shadow-md">
+                          {idx + 1}
+                        </div>
+                        <div className="p-1 rounded-md bg-purple-950/80 border border-purple-500/30 text-purple-300 opacity-70 group-hover:opacity-100 transition-opacity" title="Drag to reorder">
+                          <GripVertical className="w-3 h-3 text-amber-300" />
+                        </div>
                       </div>
 
                       {/* Card Floating Action Controls */}
@@ -458,7 +514,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                           <>
                             <button
                               type="button"
-                              onClick={() => moveFile(idx, -1)}
+                              onClick={(e) => { e.stopPropagation(); moveFile(idx, -1); }}
                               disabled={idx === 0}
                               className="p-1.5 rounded-lg bg-purple-950/90 hover:bg-purple-900 text-purple-200 hover:text-white border border-purple-600/40 shadow-sm disabled:opacity-30 transition-all"
                               title="Move Left"
@@ -467,7 +523,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                             </button>
                             <button
                               type="button"
-                              onClick={() => moveFile(idx, 1)}
+                              onClick={(e) => { e.stopPropagation(); moveFile(idx, 1); }}
                               disabled={idx === files.length - 1}
                               className="p-1.5 rounded-lg bg-purple-950/90 hover:bg-purple-900 text-purple-200 hover:text-white border border-purple-600/40 shadow-sm disabled:opacity-30 transition-all"
                               title="Move Right"
@@ -478,7 +534,7 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                         )}
                         <button
                           type="button"
-                          onClick={() => removeFile(idx)}
+                          onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
                           className="p-1.5 rounded-lg bg-purple-950/90 hover:bg-rose-900/80 text-rose-300 hover:text-rose-100 border border-rose-500/40 shadow-sm transition-all"
                           title="Delete Document"
                         >
@@ -492,10 +548,10 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
                           <img 
                             src={thumbUrl} 
                             alt="PDF Preview" 
-                            className="max-h-full max-w-full object-contain rounded-md shadow-md bg-white" 
+                            className="max-h-full max-w-full object-contain rounded-md shadow-md bg-white pointer-events-none" 
                           />
                         ) : (
-                          <div className="w-full h-full rounded-lg bg-white/5 border border-white/10 p-4 flex flex-col justify-between shadow-xs">
+                          <div className="w-full h-full rounded-lg bg-white/5 border border-white/10 p-4 flex flex-col justify-between shadow-xs pointer-events-none">
                             <div className="space-y-2">
                               <div className="h-2 w-3/4 bg-purple-500/20 rounded"></div>
                               <div className="h-1.5 w-full bg-purple-500/10 rounded"></div>
