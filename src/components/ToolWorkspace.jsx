@@ -45,6 +45,7 @@ import {
   downloadBlob 
 } from '../utils/pdfEngine';
 import { saveFileToVault } from '../utils/fileVault';
+import { trackToolUsage } from '../utils/analytics';
 import { generatePdfThumbnail, generatePdfAllPages } from '../utils/pdfThumbnail';
 
 export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
