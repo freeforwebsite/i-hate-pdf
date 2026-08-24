@@ -140,19 +140,17 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
     setFiles(updated);
   };
 
-  // Drag and Drop Card Reorder
-  const handleCardDrop = (targetIdx) => {
-    if (draggedIndex === null || draggedIndex === targetIdx) {
-      setDraggedIndex(null);
-      setDragOverIndex(null);
-      return;
-    }
-    const updated = [...files];
-    const [movedItem] = updated.splice(draggedIndex, 1);
-    updated.splice(targetIdx, 0, movedItem);
-    setFiles(updated);
-    setDraggedIndex(null);
-    setDragOverIndex(null);
+  // Live Drag and Drop Card Reordering (Cards slide live as mouse moves)
+  const handleDragOverItem = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    const newFiles = [...files];
+    const [draggedItem] = newFiles.splice(draggedIndex, 1);
+    newFiles.splice(index, 0, draggedItem);
+    setDraggedIndex(index);
+    setFiles(newFiles);
   };
 
   // Sort files A-Z or Z-A
@@ -454,48 +452,30 @@ export default function ToolWorkspace({ tool, onBack, onSelectOtherTool }) {
             {/* 1. LEFT / CENTER: OBSIDIAN DOCUMENT CARDS CANVAS (8 COLUMNS) */}
             <div className="lg:col-span-8 bg-[#14032a]/90 backdrop-blur-2xl border border-purple-500/30 rounded-3xl p-6 sm:p-8 min-h-[500px] relative flex flex-col justify-between shadow-2xl shadow-purple-950/80">
               
-              {/* Visual Document Cards Grid with Drag and Drop Reordering */}
+              {/* Visual Document Cards Grid with Live Drag and Drop Animation */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-5">
                 {files.map((file, idx) => {
                   const thumbKey = `${file.name}_${file.size}_${file.lastModified}`;
                   const thumbUrl = thumbnails[thumbKey];
                   const isBeingDragged = draggedIndex === idx;
-                  const isDragOver = dragOverIndex === idx;
 
                   return (
                     <div 
-                      key={idx}
+                      key={thumbKey + '_' + idx}
                       draggable={true}
                       onDragStart={(e) => {
-                        e.dataTransfer.setData('text/plain', idx);
+                        e.dataTransfer.setData('text/plain', idx.toString());
                         e.dataTransfer.effectAllowed = 'move';
                         setDraggedIndex(idx);
                       }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = 'move';
-                      }}
-                      onDragEnter={(e) => {
-                        e.preventDefault();
-                        setDragOverIndex(idx);
-                      }}
-                      onDragLeave={() => {
-                        if (dragOverIndex === idx) setDragOverIndex(null);
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        handleCardDrop(idx);
-                      }}
+                      onDragOver={(e) => handleDragOverItem(e, idx)}
                       onDragEnd={() => {
                         setDraggedIndex(null);
-                        setDragOverIndex(null);
                       }}
-                      className={`group relative bg-[#1b0638] rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none ${
+                      className={`group relative bg-[#1b0638] rounded-2xl border transition-all duration-300 ease-out transform overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none ${
                         isBeingDragged 
-                          ? 'opacity-30 scale-95 border-dashed border-amber-400' 
-                          : isDragOver
-                          ? 'border-amber-400 ring-2 ring-amber-400/80 bg-purple-900/90 scale-105 shadow-2xl shadow-amber-400/40'
-                          : 'border-purple-500/30 hover:border-amber-400/60 shadow-lg hover:shadow-2xl hover:shadow-purple-900/40'
+                          ? 'scale-105 rotate-2 opacity-70 border-amber-400 ring-4 ring-amber-400/40 shadow-2xl shadow-amber-400/50 z-30' 
+                          : 'border-purple-500/30 hover:border-amber-400/60 shadow-lg hover:shadow-2xl hover:shadow-purple-900/40 hover:-translate-y-1'
                       }`}
                     >
                       {/* Neon Index Badge (PDF No) */}
